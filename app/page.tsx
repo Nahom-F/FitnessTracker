@@ -4,11 +4,9 @@ import React, { useState } from 'react';
 import {
   User,
   Settings as SettingsIcon,
-  Info,
   LogOut,
   Vibrate,
   Volume2,
-  Bell,
   Shield,
   Timer,
   Ruler,
@@ -28,7 +26,9 @@ import {
   Crown,
   Sparkles,
   Lock,
-  BarChart2
+  BarChart2,
+  Target,
+  Activity
 } from 'lucide-react';
 
 type AppView = 'welcome' | 'login' | 'onboarding' | 'dashboard';
@@ -63,15 +63,10 @@ export default function FullFitnessTracker() {
   // App States
   const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
-  const [currency, setCurrency] = useState<number>(350); // Gamified Credits/Gems
+  const [currency, setCurrency] = useState<number>(350);
   
-  // Set-by-Set Logging State
-  // Tracking individual sets for each exercise ID
-  const [workoutSets, setWorkoutSets] = useState<{ [key: number]: boolean[] }>({
-    0: [true, false, false, false], // Pseudo-Planche Pushups (4 sets)
-    1: [true, true, false],         // Diamond Pushups (3 sets)
-    2: [false, false, false, false]  // Dumbbell Rows (4 sets)
-  });
+  // Track individual sets for each exercise ID
+  const [workoutSets, setWorkoutSets] = useState<{ [key: number]: boolean[] }>({});
 
   const [settings, setSettings] = useState({
     vibration: true,
@@ -87,7 +82,7 @@ export default function FullFitnessTracker() {
   const [age, setAge] = useState<string>('22');
   const [weight, setWeight] = useState<string>('70');
   const [maxPushups, setMaxPushups] = useState<number>(20);
-  const [experience, setExperience] = useState<string>('advanced');
+  const [experience, setExperience] = useState<string>('advanced'); // 'beginner' | 'intermediate' | 'advanced'
 
   // --- NAVIGATION LOGIC ---
   const nextOnboardingStep = () => {
@@ -114,58 +109,90 @@ export default function FullFitnessTracker() {
     setActiveTab('home');
   };
 
-  const toggleSetCompletion = (exerciseId: number, setIndex: number) => {
+  const toggleSetCompletion = (exerciseId: number, setIndex: number, totalSetsNeeded: number) => {
     setWorkoutSets(prev => {
-      const updatedSets = [...prev[exerciseId]];
-      updatedSets[setIndex] = !updatedSets[setIndex];
+      const currentSets = prev[exerciseId]?.length === totalSetsNeeded 
+        ? [...prev[exerciseId]] 
+        : Array(totalSetsNeeded).fill(false);
+
+      currentSets[setIndex] = !currentSets[setIndex];
       
-      // Reward user with gamified currency for completing a set
-      if (updatedSets[setIndex]) {
+      if (currentSets[setIndex]) {
         setCurrency(c => c + 10);
       } else {
         setCurrency(c => Math.max(0, c - 10));
       }
 
-      return { ...prev, [exerciseId]: updatedSets };
+      return { ...prev, [exerciseId]: currentSets };
     });
   };
 
-  // --- MOCK DATA ---
+  // --- FULLY UPDATED WORKOUT DATA WITH MUSCLE BREAKDOWNS ---
   const workoutData = [
     {
       id: 0,
-      title: "Pseudo-Planche Pushups",
-      desc: "4 Sets • 8-10 Reps",
-      icon: Dumbbell,
-      imgSrc: "/download (2).jpg",
+      title: "Pike Push-Ups",
+      icon: Target,
+      imgStart: "/Pike Push-Up up.jpg",   
+      imgEnd: "/Pike Push-Up down.jpg",   
+      mirrorStartFrame: false,    
+      setsCount: experience === "beginner" ? 3 : experience === "advanced" ? 4 : 3,
+      desc: experience === "beginner" ? "3 Sets • 5 Reps" : 
+            experience === "advanced" ? "4 Sets • 12 Reps" : "3 Sets • 8 Reps",
+      repLabel: experience === "beginner" ? "5 Reps" : 
+                experience === "advanced" ? "12 Reps" : "8 Reps",
+      mechanics: "Elevating the hips into an inverted-V shifts the angle of push from a horizontal press to a vertical overhead press. Notice how the head properly tracks forward to form a perfect tripod base.",
+      primary: "Shoulders (Anterior & Lateral Deltoids) & Upper Chest.",
+      secondary: "Triceps Brachii and Serratus Anterior.",
+      synergists: "Upper Trapezius and Core.",
       steps: [
-        "Place hands closer to hips, fingers pointing outward.",
-        "Lean forward so shoulders extend far past wrists.",
-        "Lower body while maintaining a strict hollow core."
+        "Pike your hips up high into an inverted V-shape position.",
+        "Lower your head forward down toward the floor between your hands.",
+        "Press forcefully through your shoulders to drive yourself back up."
       ]
     },
     {
       id: 1,
-      title: "Diamond Pushups",
-      desc: "3 Sets • 15 Reps",
-      icon: TargetIcon, // Placeholder map helper
-      imgSrc: "/download (1).jpg",
+      title: "Diamond Push-Ups",
+      icon: Dumbbell, 
+      imgStart: "/Diamond Push-Up up.jpg",
+      imgEnd: "/Diamond Push-Up down.jpg",
+      mirrorStartFrame: false,
+      setsCount: experience === "beginner" ? 3 : experience === "advanced" ? 4 : 3,
+      desc: experience === "beginner" ? "3 Sets • 5 Reps" : 
+            experience === "advanced" ? "4 Sets • 15 Reps" : "3 Sets • 10 Reps",
+      repLabel: experience === "beginner" ? "5 Reps" : 
+                experience === "advanced" ? "15 Reps" : "10 Reps",
+      mechanics: "Bringing the hands close together forces the elbows through a massive degree of flexion and extension, shifting the load directly onto the arms.",
+      primary: "Triceps Brachii (Lateral & Long Heads).",
+      secondary: "Inner Chest (Sternal Pectoralis).",
+      synergists: "Anterior Deltoids, Core, and Glutes.",
       steps: [
         "Form a diamond shape with your thumbs and index fingers.",
-        "Keep elbows tucked tightly to your ribs.",
+        "Keep elbows tucked tightly to your ribs as you descend.",
         "Press up explosively through the triceps."
       ]
     },
     {
       id: 2,
-      title: "Dumbbell Rows",
-      desc: "4 Sets • 12 Reps • 16kg",
+      title: "Wide Push-Ups",
       icon: BarChart2,
-      imgSrc: "/download (3).jpg",
+      imgStart: "/Wide Push-Up up.jpg",    
+      imgEnd: "/Wide Push-Up down.jpg",    
+      mirrorStartFrame: false,
+      setsCount: experience === "beginner" ? 3 : experience === "advanced" ? 5 : 3,
+      desc: experience === "beginner" ? "3 Sets • 10 Reps" : 
+            experience === "advanced" ? "5 Sets • 25 Reps" : "3 Sets • 15 Reps",
+      repLabel: experience === "beginner" ? "10 Reps" : 
+                experience === "advanced" ? "25 Reps" : "15 Reps",
+      mechanics: "By moving the hands out past shoulder width, you reduce the range of motion at the elbow and force the shoulder joint to do the heavy lifting.",
+      primary: "Chest (Pectoralis Major - Outer & Sternal Head).",
+      secondary: "Anterior Deltoids (Front Shoulders).",
+      synergists: "Triceps Brachii & Core.",
       steps: [
-        "Hinge at the hips keeping a flat, braced back.",
-        "Pull the weight toward your hip crease, not your chest.",
-        "Squeeze the lat at the top for 1 second."
+        "Set your hands considerably wider than shoulder-width apart.",
+        "Keep your core completely rigid and lower your chest down smoothly.",
+        "Drive upward focused on contracting your outer chest muscles."
       ]
     }
   ];
@@ -194,11 +221,6 @@ export default function FullFitnessTracker() {
     return { date: i + 1, status: 2 }; 
   });
 
-  // Custom Icon Selector to fix map reference inside component loops
-  function TargetIcon({ className }: { className?: string }) {
-    return <Dumbbell className={className} />;
-  }
-
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans flex justify-center items-center p-0 sm:p-4">
       
@@ -210,8 +232,13 @@ export default function FullFitnessTracker() {
         @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
         .scan-overlay { background: linear-gradient(to bottom, transparent 40%, rgba(244, 63, 94, 0.1) 50%, transparent 60%); animation: scanline 3s linear infinite; }
 
-        @keyframes subtleZoom { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
-        .animate-anatomical { animation: subtleZoom 4s ease-in-out infinite; filter: invert(0.95) hue-rotate(180deg) contrast(1.2); }
+        /* NEW 5 SECOND LOOP ENGINE */
+        @keyframes repLoop { 
+          0%, 35% { opacity: 1; }      /* Hold Top Position */
+          45%, 85% { opacity: 0; }     /* Smooth Fade to Bottom Position & Hold */
+          95%, 100% { opacity: 1; }    /* Smooth Fade back to Top */
+        }
+        .animate-rep-loop { animation: repLoop 5s ease-in-out infinite; }
         
         @keyframes fillRing { from { stroke-dasharray: 0, 100; } to { stroke-dasharray: 75, 100; } }
         .animate-ring { animation: fillRing 1.5s ease-out forwards; }
@@ -220,9 +247,7 @@ export default function FullFitnessTracker() {
       {/* MOBILE APP FRAME */}
       <div className="w-full max-w-md bg-gray-900 min-h-screen sm:min-h-[850px] sm:rounded-3xl shadow-2xl relative flex flex-col border border-gray-800 overflow-hidden">
         
-        {/* ==========================================
-            VIEW 1: WELCOME SCREEN
-           ========================================== */}
+        {/* VIEW 1: WELCOME SCREEN */}
         {currentView === 'welcome' && (
           <div className="absolute inset-0 flex flex-col justify-between p-8 z-30 transition-all duration-500">
             <div className="absolute inset-0 bg-cover bg-center z-0 scale-105" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80')` }} />
@@ -249,9 +274,7 @@ export default function FullFitnessTracker() {
           </div>
         )}
 
-        {/* ==========================================
-            VIEW 2: LOGIN VIEW
-           ========================================== */}
+        {/* VIEW 2: LOGIN VIEW */}
         {currentView === 'login' && (
           <div className="absolute inset-0 flex flex-col justify-between p-8 z-30 bg-gray-950 animate-fade">
             <div className="mt-8 z-10">
@@ -315,9 +338,7 @@ export default function FullFitnessTracker() {
           </div>
         )}
 
-        {/* ==========================================
-            VIEW 3: ONBOARDING
-           ========================================== */}
+        {/* VIEW 3: ONBOARDING */}
         {currentView === 'onboarding' && (
           <div className="absolute inset-0 flex flex-col justify-between p-8 z-30 bg-gray-950 animate-fade">
             <div>
@@ -386,7 +407,7 @@ export default function FullFitnessTracker() {
                   <div className="space-y-3 pt-2">
                     {[
                       { id: 'beginner', title: 'Recruit', icon: Circle, desc: "New to calisthenics — we'll start you light." },
-                      { id: 'intermediate', title: 'Skilled Gladiator', icon: TargetIcon, desc: 'Comfortable with the bodyweight basics.' },
+                      { id: 'intermediate', title: 'Skilled Gladiator', icon: Dumbbell, desc: 'Comfortable with the bodyweight basics.' },
                       { id: 'advanced', title: 'Movement Overlord', icon: Crown, desc: 'Advanced strength, control, and skill work.' }
                     ].map((tier) => {
                       const IconComponent = tier.icon;
@@ -417,9 +438,7 @@ export default function FullFitnessTracker() {
           </div>
         )}
 
-        {/* ==========================================
-            VIEW 4: FULL APP DASHBOARD (TABS)
-           ========================================== */}
+        {/* VIEW 4: FULL APP DASHBOARD (TABS) */}
         {currentView === 'dashboard' && (
           <div className="flex-1 flex flex-col h-full bg-gray-950 relative">
             
@@ -498,7 +517,7 @@ export default function FullFitnessTracker() {
               </div>
             )}
 
-            {/* TAB: CALENDAR (High-Fidelity Matrix Interface) */}
+            {/* TAB: CALENDAR */}
             {activeTab === 'calendar' && (
               <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
                 <div className="flex justify-between items-center mb-4">
@@ -509,7 +528,6 @@ export default function FullFitnessTracker() {
                   <BarChart2 size={22} className="text-rose-500" />
                 </div>
 
-                {/* Apple Fitness Inspired Ring Historical Row (Derived from preview.webp Layout) */}
                 <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-4 flex justify-between items-center overflow-x-auto gap-2">
                   {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
                     <div key={idx} className="flex flex-col items-center space-y-2 shrink-0">
@@ -546,7 +564,6 @@ export default function FullFitnessTracker() {
                   </div>
                 </div>
 
-                {/* Micro Histogram Inspired by preview (1).webp and preview (2).webp metrics */}
                 <div className="mt-4 bg-gray-900 border border-gray-800 rounded-2xl p-4">
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Hourly Caloric Burn Intensity</h4>
                   <div className="h-16 flex items-end justify-between px-2 pt-2 border-b border-gray-800">
@@ -563,7 +580,7 @@ export default function FullFitnessTracker() {
               </div>
             )}
 
-            {/* TAB: WORKOUTS (Execution View with Set Logging and Micro-States) */}
+            {/* TAB: WORKOUTS */}
             {activeTab === 'workouts' && (
               <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
                  <div className="flex justify-between items-end mb-6">
@@ -574,9 +591,12 @@ export default function FullFitnessTracker() {
                     <span className="text-xs text-rose-400 font-bold uppercase tracking-wider bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Active</span>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {workoutData.map((workout, index) => {
-                      const sets = workoutSets[workout.id] || [];
+                      const sets = workoutSets[workout.id]?.length === workout.setsCount 
+                        ? workoutSets[workout.id] 
+                        : Array(workout.setsCount).fill(false);
+                      
                       const completedCount = sets.filter(Boolean).length;
                       const isFullyCompleted = completedCount === sets.length;
                       const isExpanded = expandedExercise === index;
@@ -613,15 +633,83 @@ export default function FullFitnessTracker() {
                           </div>
 
                           {isExpanded && (
-                            <div className="px-4 pb-4 pt-2 border-t border-gray-700/50 bg-gray-800/40 space-y-4">
-                              {/* Set Logging Micro-State Interaction Grid */}
-                              <div>
-                                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">Track Sub-Sets</h4>
+                            <div className="px-4 pb-4 pt-2 border-t border-gray-700/50 bg-gray-800/40 space-y-5">
+                              
+                              {/* 5-SECOND LOOPING MATRIX ENGINE */}
+                              <div className="relative w-full aspect-video bg-[#0a0a0a] rounded-xl overflow-hidden border border-gray-700 flex items-center justify-center mt-2 group">
+                                {/* Base Frame: Bottom Position */}
+                                <img 
+                                  src={workout.imgEnd} 
+                                  alt={`${workout.title} down`} 
+                                  className="absolute w-full h-full object-cover" 
+                                />
+                                {/* Overlay Frame: Top Position (Runs the 5s pure CSS Crossfade loop) */}
+                                <img 
+                                  src={workout.imgStart} 
+                                  alt={`${workout.title} up`} 
+                                  className={`absolute w-full h-full object-cover animate-rep-loop ${workout.mirrorStartFrame ? 'scale-x-[-1]' : ''}`} 
+                                />
+                                
+                                <div className="absolute inset-0 scan-overlay pointer-events-none" />
+                                <div className="absolute top-3 left-3 bg-black/80 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border border-rose-500/30 text-rose-400 flex items-center space-x-1.5 backdrop-blur-sm z-10">
+                                  <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse mr-1"></span> 5s Target Pace
+                                </div>
+                              </div>
+
+                              {/* Muscle Breakdown Data */}
+                              <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50 space-y-4">
+                                <p className="text-xs text-gray-400 italic mb-4 border-b border-gray-800 pb-3">{workout.mechanics}</p>
+                                
+                                <div className="flex items-start space-x-3">
+                                  <div className="mt-0.5 bg-rose-500/20 p-1.5 rounded-lg shrink-0">
+                                    <Target size={14} className="text-rose-400" />
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block mb-0.5">Primary Focus</span>
+                                    <span className="text-xs text-gray-300">{workout.primary}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start space-x-3">
+                                  <div className="mt-0.5 bg-purple-500/20 p-1.5 rounded-lg shrink-0">
+                                    <Activity size={14} className="text-purple-400" />
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block mb-0.5">Secondary Focus</span>
+                                    <span className="text-xs text-gray-300">{workout.secondary}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start space-x-3">
+                                  <div className="mt-0.5 bg-blue-500/20 p-1.5 rounded-lg shrink-0">
+                                    <Shield size={14} className="text-blue-400" />
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-0.5">Stabilizers</span>
+                                    <span className="text-xs text-gray-300">{workout.synergists}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Form Steps */}
+                              <div className="space-y-2 pt-2">
+                                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">Form Check</h4>
+                                {workout.steps.map((step, stepIdx) => (
+                                  <div key={stepIdx} className="flex items-start space-x-3">
+                                    <div className="w-5 h-5 rounded-full bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{stepIdx + 1}</div>
+                                    <p className="text-xs text-gray-400 leading-relaxed">{step}</p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Set Logging */}
+                              <div className="pt-4 border-t border-gray-700">
+                                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Track Sub-Sets</h4>
                                 <div className="grid grid-cols-1 gap-2">
                                   {sets.map((setDone, setIdx) => (
                                     <div 
                                       key={setIdx}
-                                      onClick={() => toggleSetCompletion(workout.id, setIdx)}
+                                      onClick={() => toggleSetCompletion(workout.id, setIdx, workout.setsCount)}
                                       className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                                         setDone 
                                           ? 'bg-rose-500/10 border-rose-500/40 text-rose-200' 
@@ -633,11 +721,10 @@ export default function FullFitnessTracker() {
                                           SET {setIdx + 1}
                                         </span>
                                         <span className="text-xs font-medium">
-                                          {workout.id === 2 ? '12 Reps • 16kg' : workout.id === 1 ? '15 Reps' : '8-10 Reps'}
+                                          {workout.repLabel}
                                         </span>
                                       </div>
                                       
-                                      {/* Micro-state interactive item check */}
                                       {setDone ? (
                                         <div className="flex items-center space-x-1 text-rose-400">
                                           <span className="text-[10px] font-bold font-mono tracking-wider uppercase bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Logged (+10G)</span>
@@ -650,22 +737,6 @@ export default function FullFitnessTracker() {
                                   ))}
                                 </div>
                               </div>
-
-                              <div className="relative w-full h-48 bg-[#0a0a0a] rounded-xl overflow-hidden border border-gray-700 flex items-center justify-center mt-2">
-                                <img src={encodeURI(workout.imgSrc)} alt={workout.title} className="w-full h-full object-contain p-2 animate-anatomical" />
-                                <div className="absolute inset-0 scan-overlay pointer-events-none" />
-                                <div className="absolute top-2 left-2 bg-black/80 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-rose-500/30 text-rose-400 flex items-center space-x-1 backdrop-blur-sm z-10">
-                                  <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse mr-1"></span> Muscular Scan Active
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                {workout.steps.map((step, stepIdx) => (
-                                  <div key={stepIdx} className="flex items-start space-x-3">
-                                    <div className="w-5 h-5 rounded-full bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{stepIdx + 1}</div>
-                                    <p className="text-xs text-gray-400 leading-relaxed">{step}</p>
-                                  </div>
-                                ))}
-                              </div>
                             </div>
                           )}
                         </div>
@@ -675,7 +746,7 @@ export default function FullFitnessTracker() {
               </div>
             )}
 
-            {/* NEW TAB: LEADERBOARD / RANK SCREEN */}
+            {/* TAB: LEADERBOARD */}
             {activeTab === 'leaderboard' && (
               <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
                 <div className="flex justify-between items-center mb-6">
@@ -725,7 +796,7 @@ export default function FullFitnessTracker() {
               </div>
             )}
 
-            {/* NEW TAB: ITEM SHOP / STORE SCREEN */}
+            {/* TAB: ITEM SHOP */}
             {activeTab === 'shop' && (
               <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
                 <div className="flex justify-between items-center mb-6">
@@ -908,26 +979,6 @@ export default function FullFitnessTracker() {
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: ABOUT US */}
-            {activeTab === 'about' && (
-              <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
-                <div className="flex items-center space-x-3 mb-6">
-                  <button onClick={() => setActiveTab('home')} className="text-gray-400 hover:text-white">
-                    <ArrowLeft size={20} />
-                  </button>
-                  <h2 className="text-2xl font-black">About Us</h2>
-                </div>
-
-                <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 text-center mb-6">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg">
-                    <Dumbbell size={28} className="text-white" />
-                  </div>
-                  <h3 className="text-lg font-black">The RPG Fitness Experience</h3>
-                  <p className="text-xs text-gray-500 mt-1">Version 1.0.0</p>
                 </div>
               </div>
             )}
