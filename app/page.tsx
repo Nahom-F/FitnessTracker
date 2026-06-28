@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   User,
   Settings as SettingsIcon,
@@ -163,6 +163,15 @@ export default function FullFitnessTracker() {
   // Instead of window.confirm, we just show the modal
   setShowResetModal(true);
 };
+
+  // Reset scroll position whenever the active tab changes — otherwise the shared
+  // scroll container keeps its old scrollTop and the new tab renders mid-scroll.
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [activeTab]);
 
   const nextOnboardingStep = () => {
     if (onboardingStep < 3) {
@@ -548,32 +557,20 @@ export default function FullFitnessTracker() {
           <div className="flex-1 flex flex-col bg-gray-950 relative overflow-hidden">
             
             {/* Scrollable Tab Area */}
-            <div className="flex-1 overflow-y-auto pb-24">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pb-24">
               
               {/* TAB: HOME */}
               {activeTab === 'home' && (
                 <div className="animate-fade">
                   <div className="p-6 bg-gradient-to-b from-gray-800 to-gray-900 rounded-b-3xl shadow-lg border-b border-gray-800">
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex justify-between items-center mb-6 pr-16">
                       <div>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Welcome back,</p>
                         <h1 className="text-2xl font-black text-white">Nahom</h1>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <div className="bg-gray-950 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center space-x-1.5">
-                          <Sparkles size={14} className="text-yellow-400 animate-pulse" />
-                          <span className="text-xs font-mono font-bold text-yellow-400">{currency}G</span>
-                        </div>
-                        <button onClick={() => setShowAccountMenu(true)} className="relative w-11 h-11 active:scale-95 transition-transform">
-                          {purchasedItems.includes('item_2') && (
-                            <span className="absolute inset-[-2px] rounded-full bg-[conic-gradient(from_0deg,#f43f5e,#a855f7,#22d3ee,#f43f5e)] animate-spin" style={{ animationDuration: '3s' }} />
-                          )}
-                          <span className={`absolute flex items-center justify-center rounded-full bg-gray-800 ${
-                            purchasedItems.includes('item_2') ? 'inset-[2px]' : 'inset-0 border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-                          }`}>
-                            <User size={18} className="text-rose-400" />
-                          </span>
-                        </button>
+                      <div className="bg-gray-950 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center space-x-1.5">
+                        <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+                        <span className="text-xs font-mono font-bold text-yellow-400">{currency}G</span>
                       </div>
                     </div>
 
@@ -1099,13 +1096,8 @@ export default function FullFitnessTracker() {
 
               {/* TAB: SETTINGS */}
               {activeTab === 'settings' && (
-                <div className="p-6 animate-fade">
-                  <div className="flex items-center space-x-3 mb-6">
-                    <button onClick={() => setActiveTab('home')} className="text-gray-400 hover:text-white">
-                      <ArrowLeft size={20} />
-                    </button>
-                    <h2 className="text-2xl font-black">Settings</h2>
-                  </div>
+                <div className="px-6 pb-6 pt-24 animate-fade">
+                  <h2 className="text-2xl font-black mb-6">Settings</h2>
 
                   <div className="space-y-6">
                     <div>
@@ -1130,6 +1122,42 @@ export default function FullFitnessTracker() {
                             </div>
                           </div>
                           <Toggle checked={settings.sound} onChange={() => setSettings((s) => ({ ...s, sound: !s.sound }))} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Workout</h4>
+                      <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800">
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center space-x-3">
+                            <Timer size={18} className="text-gray-400 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-200">Auto Rest Timer</p>
+                              <p className="text-[11px] text-gray-500">Starts a countdown between sets</p>
+                            </div>
+                          </div>
+                          <Toggle checked={settings.autoRestTimer} onChange={() => setSettings((s) => ({ ...s, autoRestTimer: !s.autoRestTimer }))} />
+                        </div>
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center space-x-3">
+                            <Ruler size={18} className="text-gray-400 shrink-0" />
+                            <p className="text-sm font-medium text-gray-200">Weight Unit</p>
+                          </div>
+                          <div className="flex bg-gray-800 rounded-lg p-1">
+                            <button
+                              onClick={() => setSettings((s) => ({ ...s, units: 'kg' }))}
+                              className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${settings.units === 'kg' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
+                            >
+                              KG
+                            </button>
+                            <button
+                              onClick={() => setSettings((s) => ({ ...s, units: 'lb' }))}
+                              className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${settings.units === 'lb' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
+                            >
+                              LB
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1195,13 +1223,8 @@ export default function FullFitnessTracker() {
 
               {/* TAB: ABOUT US */}
               {activeTab === 'about' && (
-                <div className="p-6 animate-fade">
-                  <div className="flex items-center space-x-3 mb-6">
-                    <button onClick={() => setActiveTab('home')} className="text-gray-400 hover:text-white">
-                      <ArrowLeft size={20} />
-                    </button>
-                    <h2 className="text-2xl font-black">About Us</h2>
-                  </div>
+                <div className="px-6 pb-6 pt-24 animate-fade">
+                  <h2 className="text-2xl font-black mb-6">About Us</h2>
 
                   <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 text-center mb-6">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg">
@@ -1252,6 +1275,32 @@ export default function FullFitnessTracker() {
               )}
 
             </div>
+
+            {/* FLOATING TOP CONTROLS — fixed in place; everything else scrolls beneath them */}
+            {(activeTab === 'settings' || activeTab === 'about') && (
+              <button
+                onClick={() => setActiveTab('home')}
+                className="absolute top-6 left-6 z-30 w-10 h-10 rounded-full bg-gray-900/80 backdrop-blur-md border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white active:scale-95 transition-all shadow-lg"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+
+            {activeTab === 'home' && (
+              <button
+                onClick={() => setShowAccountMenu(true)}
+                className="absolute top-6 right-6 z-30 w-11 h-11 active:scale-95 transition-transform"
+              >
+                {purchasedItems.includes('item_2') && (
+                  <span className="absolute inset-[-2px] rounded-full bg-[conic-gradient(from_0deg,#f43f5e,#a855f7,#22d3ee,#f43f5e)] animate-spin" style={{ animationDuration: '3s' }} />
+                )}
+                <span className={`absolute flex items-center justify-center rounded-full bg-gray-800 ${
+                  purchasedItems.includes('item_2') ? 'inset-[2px]' : 'inset-0 border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                }`}>
+                  <User size={18} className="text-rose-400" />
+                </span>
+              </button>
+            )}
 
             {/* FIXED BOTTOM NAVIGATION BAR */}
             <div className="flex-none absolute bottom-0 w-full bg-gray-950/95 backdrop-blur-md border-t border-gray-800 p-4 pb-6 flex justify-between items-center z-20 px-6">
