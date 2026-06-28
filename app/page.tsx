@@ -40,6 +40,10 @@ import {
 // --- AVATAR CUSTOMIZATION PRESETS ---
 const AVATAR_ICONS: Record<string, any> = { Crown, Swords, Shield, Flame, Zap, Dumbbell, Target, Trophy };
 const AVATAR_EMOJIS = ['💪', '🔥', '🏋️', '🥷', '⚡', '🦾', '🎯', '💎'];
+const RANDOM_NAMES = [
+  'IronWolf', 'SteelPhoenix', 'ShadowGrappler', 'CrimsonTitan', 'NightForge',
+  'VoidStriker', 'StormAnvil', 'EmberKnight', 'GraniteFist', 'RogueSentinel'
+];
 const GRADIENT_PRESETS: Record<string, string> = {
   roseViolet: 'from-rose-500 to-purple-600',
   skyBlue: 'from-cyan-400 to-blue-600',
@@ -76,7 +80,7 @@ const leaderboardData = [
   { rank: 1, name: "Vanguard_Overlord", xp: "142,050", streak: 120, avatarColor: "from-yellow-400 to-amber-600", isMe: false },
   { rank: 2, name: "SleeperBuildPro", xp: "128,400", streak: 84, avatarColor: "from-purple-500 to-indigo-600", isMe: false },
   { rank: 3, name: "CalisthenicsKing", xp: "115,900", streak: 56, avatarColor: "from-cyan-400 to-blue-600", isMe: false },
-  { rank: 4, name: "Nahom", xp: "98,350", streak: 28, avatarColor: "from-rose-500 to-purple-600", isMe: true },
+  { rank: 4, name: "You", xp: "98,350", streak: 28, avatarColor: "from-rose-500 to-purple-600", isMe: true },
   { rank: 5, name: "HollowBodyWarrior", xp: "84,100", streak: 19, avatarColor: "from-emerald-400 to-teal-600", isMe: false },
 ];
 
@@ -154,6 +158,7 @@ export default function FullFitnessTracker() {
   const [weight, setWeight] = useState<string>('70');
   const [maxPushups, setMaxPushups] = useState<number>(20);
   const [experience, setExperience] = useState<string>('advanced');
+  const [userName, setUserName] = useState<string>('');
 
   const [avatarConfig, setAvatarConfig] = useState({
     type: 'icon' as 'icon' | 'emoji',
@@ -182,6 +187,7 @@ export default function FullFitnessTracker() {
         if (typeof data.maxPushups === 'number') setMaxPushups(data.maxPushups);
         if (data.experience) setExperience(data.experience);
         if (data.avatarConfig) setAvatarConfig((a) => ({ ...a, ...data.avatarConfig }));
+        if (typeof data.userName === 'string') setUserName(data.userName);
       }
     } catch (e) {
       console.error('Could not load saved progress', e);
@@ -195,12 +201,12 @@ export default function FullFitnessTracker() {
     try {
       localStorage.setItem('fittrack_save', JSON.stringify({
         currentView, authMode, activeTab, currency, purchasedItems, workoutSets,
-        settings, age, weight, maxPushups, experience, avatarConfig
+        settings, age, weight, maxPushups, experience, avatarConfig, userName
       }));
     } catch (e) {
       console.error('Could not save progress', e);
     }
-  }, [isLoaded, currentView, authMode, activeTab, currency, purchasedItems, workoutSets, settings, age, weight, maxPushups, experience, avatarConfig]);
+  }, [isLoaded, currentView, authMode, activeTab, currency, purchasedItems, workoutSets, settings, age, weight, maxPushups, experience, avatarConfig, userName]);
 
   // RESET BUTTON CONFIRMATION
   const resetProgress = () => {
@@ -218,7 +224,10 @@ export default function FullFitnessTracker() {
   }, [activeTab]);
 
   const nextOnboardingStep = () => {
-    if (onboardingStep < 3) {
+    if (onboardingStep === 1 && userName.trim() === '') {
+      setUserName(RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]);
+    }
+    if (onboardingStep < 4) {
       setOnboardingStep(onboardingStep + 1);
     } else {
       setCurrentView('dashboard');
@@ -503,14 +512,35 @@ export default function FullFitnessTracker() {
               <div className="flex justify-between items-center mt-4 mb-8">
                 <button onClick={prevOnboardingStep} className="text-sm text-gray-400 hover:text-white">← Back</button>
                 <div className="flex space-x-2">
-                  {[1, 2, 3].map((step) => (
+                  {[1, 2, 3, 4].map((step) => (
                     <div key={step} className={`h-1.5 rounded-full transition-all duration-300 ${step <= onboardingStep ? 'w-6 bg-rose-500' : 'w-2 bg-gray-800'}`} />
                   ))}
                 </div>
-                <span className="text-xs font-mono text-gray-500">STEP {onboardingStep}/3</span>
+                <span className="text-xs font-mono text-gray-500">STEP {onboardingStep}/4</span>
               </div>
 
               {onboardingStep === 1 && (
+                <div className="space-y-6 animate-fade">
+                  <div>
+                    <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-1">Identity</span>
+                    <h2 className="text-2xl font-black">What's your warrior name?</h2>
+                  </div>
+                  <div className="bg-gray-900 p-4 rounded-2xl border border-gray-800 focus-within:border-rose-500">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Callsign</label>
+                    <input
+                      type="text"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="Leave blank for a random one"
+                      maxLength={20}
+                      className="w-full bg-transparent text-2xl font-black focus:outline-none text-white placeholder:text-gray-600 placeholder:text-base"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 px-1">This is how you'll appear on the leaderboard. Skip it and we'll forge a callsign for you.</p>
+                </div>
+              )}
+
+              {onboardingStep === 2 && (
                 <div className="space-y-6 animate-fade">
                   <div>
                     <span className="text-xs font-bold text-rose-400 uppercase tracking-widest block mb-1">Character Registry</span>
@@ -535,7 +565,7 @@ export default function FullFitnessTracker() {
                 </div>
               )}
 
-              {onboardingStep === 2 && (
+              {onboardingStep === 3 && (
                 <div className="space-y-6 animate-fade">
                   <div>
                     <span className="text-xs font-bold text-purple-400 uppercase tracking-widest block mb-1">Power Level</span>
@@ -556,7 +586,7 @@ export default function FullFitnessTracker() {
                 </div>
               )}
 
-              {onboardingStep === 3 && (
+              {onboardingStep === 4 && (
                 <div className="space-y-6 animate-fade">
                   <div>
                     <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest block mb-1">Class Archetype</span>
@@ -590,7 +620,7 @@ export default function FullFitnessTracker() {
             </div>
             <div className="mb-4">
               <button onClick={nextOnboardingStep} className="w-full bg-gradient-to-r from-rose-500 to-purple-600 text-white font-bold py-4 rounded-xl shadow-lg">
-                {onboardingStep === 3 ? 'Generate Base Attributes' : 'Next Attribute'} →
+                {onboardingStep === 4 ? 'Generate Base Attributes' : onboardingStep === 1 ? 'Confirm Identity' : 'Next Attribute'} →
               </button>
             </div>
           </div>
@@ -610,7 +640,7 @@ export default function FullFitnessTracker() {
                     <div className="flex justify-between items-center mb-6 pr-16">
                       <div>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Welcome back,</p>
-                        <h1 className="text-2xl font-black text-white">Nahom</h1>
+                        <h1 className="text-2xl font-black text-white">{userName || 'Warrior'}</h1>
                       </div>
                       <div className="bg-gray-950 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center space-x-1.5">
                         <Sparkles size={14} className="text-yellow-400 animate-pulse" />
@@ -1001,7 +1031,7 @@ export default function FullFitnessTracker() {
                             </div>
                             <div>
                               <h4 className={`text-sm font-bold ${warrior.isMe ? 'text-rose-400' : 'text-gray-200'}`}>
-                                {warrior.name}{' '}
+                                {warrior.isMe ? (userName || 'Warrior') : warrior.name}{' '}
                                 {warrior.isMe && <span className="text-[10px] font-mono text-purple-400 ml-1 border border-purple-500/30 px-1 py-0.5 rounded bg-purple-500/10">YOU</span>}
                                 {hasAura && <Crown size={12} className="inline text-yellow-400 ml-1 -translate-y-0.5" />}
                               </h4>
