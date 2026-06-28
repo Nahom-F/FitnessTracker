@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Settings as SettingsIcon,
@@ -8,6 +8,7 @@ import {
   Vibrate,
   Volume2,
   Shield,
+  ShieldCheck,
   Timer,
   Ruler,
   Flame,
@@ -28,8 +29,28 @@ import {
   Lock,
   BarChart2,
   Target,
-  Activity
+  Activity,
+  Info,
+  Bell,
+  MoveHorizontal,
+  RotateCcw
 } from 'lucide-react';
+
+// --- DATA MOVED OUTSIDE COMPONENT ---
+// Static data that doesn't change can live outside to make the app faster
+const leaderboardData = [
+  { rank: 1, name: "Vanguard_Overlord", xp: "142,050", streak: 120, avatarColor: "from-yellow-400 to-amber-600", isMe: false },
+  { rank: 2, name: "SleeperBuildPro", xp: "128,400", streak: 84, avatarColor: "from-purple-500 to-indigo-600", isMe: false },
+  { rank: 3, name: "CalisthenicsKing", xp: "115,900", streak: 56, avatarColor: "from-cyan-400 to-blue-600", isMe: false },
+  { rank: 4, name: "Nahom", xp: "98,350", streak: 28, avatarColor: "from-rose-500 to-purple-600", isMe: true },
+  { rank: 5, name: "HollowBodyWarrior", xp: "84,100", streak: 19, avatarColor: "from-emerald-400 to-teal-600", isMe: false },
+];
+
+const shopItems = [
+  { id: 'item_1', name: 'Streak Freeze Matrix', price: 150, desc: 'Prevents streak loss if you miss an active training window.', icon: Flame, color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
+  { id: 'item_2', name: 'Cybernetic Avatar Border', price: 250, desc: 'Equip a neon animated halo glow around your profile token.', icon: Sparkles, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+  { id: 'item_3', name: 'Shadow Overlord Aura', price: 500, desc: 'Unlocks custom visual design profiles across community ranking feeds.', icon: Crown, color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
+];
 
 type AppView = 'welcome' | 'login' | 'onboarding' | 'dashboard';
 type Tab = 'home' | 'calendar' | 'workouts' | 'profile' | 'settings' | 'about' | 'leaderboard' | 'shop';
@@ -53,19 +74,36 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
   );
 }
 
+function RingStat({ pct, radius, color }: { pct: number; radius: number; color: string }) {
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.min(Math.max(pct, 0), 100) / 100);
+  return (
+    <circle
+      cx="18" cy="18" r={radius}
+      fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round"
+      strokeDasharray={circumference}
+      strokeDashoffset={offset}
+      style={{ transition: 'stroke-dashoffset 0.6s ease-out' }}
+    />
+  );
+}
+
 export default function FullFitnessTracker() {
   // Navigation States
   const [currentView, setCurrentView] = useState<AppView>('welcome');
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [showResetModal, setShowResetModal] = useState(false);
   
   // App States
   const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [currency, setCurrency] = useState<number>(350);
+  const [purchasedItems, setPurchasedItems] = useState<string[]>(['item_2']);
+  const [selectedDay, setSelectedDay] = useState<number | null>(27);
+  const [isLoaded, setIsLoaded] = useState(false);
   
-  // Track individual sets for each exercise ID
   const [workoutSets, setWorkoutSets] = useState<{ [key: number]: boolean[] }>({});
 
   const [settings, setSettings] = useState({
@@ -78,13 +116,54 @@ export default function FullFitnessTracker() {
     units: 'kg' as 'kg' | 'lb',
   });
 
-  // Onboarding Form States
   const [age, setAge] = useState<string>('22');
   const [weight, setWeight] = useState<string>('70');
   const [maxPushups, setMaxPushups] = useState<number>(20);
-  const [experience, setExperience] = useState<string>('advanced'); // 'beginner' | 'intermediate' | 'advanced'
+  const [experience, setExperience] = useState<string>('advanced');
 
-  // --- NAVIGATION LOGIC ---
+  // LOAD SAVED PROGRESS
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fittrack_save');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.currentView) setCurrentView(data.currentView);
+        if (data.authMode) setAuthMode(data.authMode);
+        if (data.activeTab) setActiveTab(data.activeTab);
+        if (typeof data.currency === 'number') setCurrency(data.currency);
+        if (Array.isArray(data.purchasedItems)) setPurchasedItems(data.purchasedItems);
+        if (data.workoutSets) setWorkoutSets(data.workoutSets);
+        if (data.settings) setSettings((s) => ({ ...s, ...data.settings }));
+        if (data.age) setAge(data.age);
+        if (data.weight) setWeight(data.weight);
+        if (typeof data.maxPushups === 'number') setMaxPushups(data.maxPushups);
+        if (data.experience) setExperience(data.experience);
+      }
+    } catch (e) {
+      console.error('Could not load saved progress', e);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // SAVE PROGRESS
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      localStorage.setItem('fittrack_save', JSON.stringify({
+        currentView, authMode, activeTab, currency, purchasedItems, workoutSets,
+        settings, age, weight, maxPushups, experience
+      }));
+    } catch (e) {
+      console.error('Could not save progress', e);
+    }
+  }, [isLoaded, currentView, authMode, activeTab, currency, purchasedItems, workoutSets, settings, age, weight, maxPushups, experience]);
+
+  // RESET BUTTON CONFIRMATION
+  const resetProgress = () => {
+  // Instead of window.confirm, we just show the modal
+  setShowResetModal(true);
+};
+
   const nextOnboardingStep = () => {
     if (onboardingStep < 3) {
       setOnboardingStep(onboardingStep + 1);
@@ -127,7 +206,6 @@ export default function FullFitnessTracker() {
     });
   };
 
-  // --- FULLY UPDATED WORKOUT DATA WITH MUSCLE BREAKDOWNS ---
   const workoutData = [
     {
       id: 0,
@@ -176,7 +254,7 @@ export default function FullFitnessTracker() {
     {
       id: 2,
       title: "Wide Push-Ups",
-      icon: BarChart2,
+      icon: MoveHorizontal,
       imgStart: "/Wide Push-Up up.jpg",    
       imgEnd: "/Wide Push-Up down.jpg",    
       mirrorStartFrame: false,
@@ -197,34 +275,62 @@ export default function FullFitnessTracker() {
     }
   ];
 
-  // Leaderboard Mock Data
-  const leaderboardData = [
-    { rank: 1, name: "Vanguard_Overlord", xp: "142,050", streak: 120, avatarColor: "from-yellow-400 to-amber-600", isMe: false },
-    { rank: 2, name: "SleeperBuildPro", xp: "128,400", streak: 84, avatarColor: "from-purple-500 to-indigo-600", isMe: false },
-    { rank: 3, name: "CalisthenicsKing", xp: "115,900", streak: 56, avatarColor: "from-cyan-400 to-blue-600", isMe: false },
-    { rank: 4, name: "Nahom", xp: "98,350", streak: 28, avatarColor: "from-rose-500 to-purple-600", isMe: true },
-    { rank: 5, name: "HollowBodyWarrior", xp: "84,100", streak: 19, avatarColor: "from-emerald-400 to-teal-600", isMe: false },
-  ];
+  const getSetsArray = (workout: { id: number; setsCount: number }) =>
+    workoutSets[workout.id]?.length === workout.setsCount ? workoutSets[workout.id] : Array(workout.setsCount).fill(false);
 
-  // Shop Mock Data
-  const shopItems = [
-    { id: 'item_1', name: 'Streak Freeze Matrix', price: 150, desc: 'Prevents streak loss if you miss an active training window.', icon: Flame, purchased: false, color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
-    { id: 'item_2', name: 'Cybernetic Avatar Border', price: 250, desc: 'Equip a neon animated halo glow around your profile token.', icon: Sparkles, purchased: true, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
-    { id: 'item_3', name: 'Shadow Overlord Aura', price: 500, desc: 'Unlocks custom visual design profiles across community ranking feeds.', icon: Crown, purchased: false, color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
-  ];
+  const totalSetsToday = workoutData.reduce((sum, w) => sum + w.setsCount, 0);
+  const completedSetsToday = workoutData.reduce((sum, w) => sum + getSetsArray(w).filter(Boolean).length, 0);
+  const exercisesFullyDone = workoutData.filter((w) => {
+    const s = getSetsArray(w);
+    return s.length > 0 && s.every(Boolean);
+  }).length;
+  const allWorkoutsDone = totalSetsToday > 0 && exercisesFullyDone === workoutData.length;
 
-  // Calendar mock data
+  const CALORIES_PER_SET = 12;
+  const MINUTES_PER_SET = 1.5;
+  const CALORIE_GOAL = 600;
+  const MINUTE_GOAL = 60;
+  const caloriesBurned = Math.round(completedSetsToday * CALORIES_PER_SET);
+  const minutesActive = Math.round(completedSetsToday * MINUTES_PER_SET);
+  const calorieProgress = Math.min(100, Math.round((caloriesBurned / CALORIE_GOAL) * 100));
+  const minuteProgress = Math.min(100, Math.round((minutesActive / MINUTE_GOAL) * 100));
+  const dailyTargetPct = Math.min(100, Math.round((calorieProgress + minuteProgress) / 2));
+
+  const TODAY_INDEX = 27;
   const calendarDays = Array.from({ length: 35 }, (_, i) => {
-    if (i > 27) return { date: i + 1, status: 0 }; 
-    if (i % 7 === 0 || i % 7 === 4) return { date: i + 1, status: 1 }; 
-    if (i === 14) return { date: i + 1, status: 3 }; 
-    return { date: i + 1, status: 2 }; 
+    const date = i + 1;
+    let status = 2; 
+    if (i > 27) status = 0;
+    else if (i % 7 === 0 || i % 7 === 4) status = 1;
+    else if (i === 14) status = 3;
+
+    const seed = (i * 53) % 97;
+    let power = status === 2 ? 60 + (seed % 50) : status === 1 ? 20 + (seed % 15) : 0;
+    let time = status === 2 ? 70 + (seed % 40) : status === 1 ? 15 + (seed % 20) : 0;
+    let discipline = status === 2 ? 80 + (seed % 30) : status === 1 ? 30 : 0;
+
+    if (i === TODAY_INDEX) {
+      power = calorieProgress;
+      time = minuteProgress;
+      discipline = dailyTargetPct;
+      status = completedSetsToday > 0 ? 2 : 1;
+    }
+
+    return { date, status, power, time, discipline };
   });
+  const last7Days = calendarDays.slice(Math.max(0, TODAY_INDEX - 6), TODAY_INDEX + 1);
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-gray-700 border-t-rose-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans flex justify-center items-center p-0 sm:p-4">
       
-      {/* INJECTED CSS ANIMATIONS */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
@@ -232,11 +338,10 @@ export default function FullFitnessTracker() {
         @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
         .scan-overlay { background: linear-gradient(to bottom, transparent 40%, rgba(244, 63, 94, 0.1) 50%, transparent 60%); animation: scanline 3s linear infinite; }
 
-        /* NEW 5 SECOND LOOP ENGINE */
         @keyframes repLoop { 
-          0%, 35% { opacity: 1; }      /* Hold Top Position */
-          45%, 85% { opacity: 0; }     /* Smooth Fade to Bottom Position & Hold */
-          95%, 100% { opacity: 1; }    /* Smooth Fade back to Top */
+          0%, 35% { opacity: 1; }      
+          45%, 85% { opacity: 0; }     
+          95%, 100% { opacity: 1; }    
         }
         .animate-rep-loop { animation: repLoop 5s ease-in-out infinite; }
         
@@ -244,8 +349,8 @@ export default function FullFitnessTracker() {
         .animate-ring { animation: fillRing 1.5s ease-out forwards; }
       `}} />
 
-      {/* MOBILE APP FRAME */}
-      <div className="w-full max-w-md bg-gray-900 min-h-screen sm:min-h-[850px] sm:rounded-3xl shadow-2xl relative flex flex-col border border-gray-800 overflow-hidden">
+      {/* MOBILE APP FRAME - Fixed height layout implemented here */}
+      <div className="w-full max-w-md bg-gray-900 h-[100dvh] sm:h-[850px] sm:rounded-3xl shadow-2xl relative flex flex-col border border-gray-800 overflow-hidden">
         
         {/* VIEW 1: WELCOME SCREEN */}
         {currentView === 'welcome' && (
@@ -440,551 +545,716 @@ export default function FullFitnessTracker() {
 
         {/* VIEW 4: FULL APP DASHBOARD (TABS) */}
         {currentView === 'dashboard' && (
-          <div className="flex-1 flex flex-col h-full bg-gray-950 relative">
+          <div className="flex-1 flex flex-col bg-gray-950 relative overflow-hidden">
             
-            {/* TAB: HOME */}
-            {activeTab === 'home' && (
-              <div className="flex-1 overflow-y-auto pb-24 animate-fade">
-                <div className="p-6 bg-gradient-to-b from-gray-800 to-gray-900 rounded-b-3xl shadow-lg border-b border-gray-800">
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Welcome back,</p>
-                      <h1 className="text-2xl font-black text-white">Nahom</h1>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-gray-950 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center space-x-1.5">
-                        <Sparkles size={14} className="text-yellow-400 animate-pulse" />
-                        <span className="text-xs font-mono font-bold text-yellow-400">{currency}G</span>
-                      </div>
-                      <button
-                        onClick={() => setShowAccountMenu(true)}
-                        className="w-11 h-11 rounded-full border-2 border-rose-500 bg-gray-800 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(244,63,94,0.3)] active:scale-95 transition-transform"
-                      >
-                        <User size={18} className="text-rose-400" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-950 rounded-2xl p-5 border border-gray-800 flex items-center justify-between shadow-inner">
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-300">Daily Target</h3>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Upper Body Focus</p>
-                      <div className="mt-4 space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Flame size={14} className="text-rose-500" />
-                          <span className="text-xs font-medium">450 / 600 kcal</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Zap size={14} className="text-purple-500" />
-                          <span className="text-xs font-medium">45 / 60 mins</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="relative w-24 h-24">
-                      <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#1f2937" strokeWidth="3" />
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f43f5e" strokeWidth="3" strokeDasharray="75, 100" className="animate-ring" strokeLinecap="round" />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-xl font-black">75%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 flex justify-between items-center">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center border border-orange-500/50">
-                        <Flame className="text-orange-500" size={20} />
-                      </div>
+            {/* Scrollable Tab Area */}
+            <div className="flex-1 overflow-y-auto pb-24">
+              
+              {/* TAB: HOME */}
+              {activeTab === 'home' && (
+                <div className="animate-fade">
+                  <div className="p-6 bg-gradient-to-b from-gray-800 to-gray-900 rounded-b-3xl shadow-lg border-b border-gray-800">
+                    <div className="flex justify-between items-center mb-6">
                       <div>
-                        <h4 className="font-bold text-sm">28 Day Streak</h4>
-                        <p className="text-[10px] text-gray-400">Personal Best: 42 Days</p>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Welcome back,</p>
+                        <h1 className="text-2xl font-black text-white">Nahom</h1>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-gray-950 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center space-x-1.5">
+                          <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+                          <span className="text-xs font-mono font-bold text-yellow-400">{currency}G</span>
+                        </div>
+                        <button onClick={() => setShowAccountMenu(true)} className="relative w-11 h-11 active:scale-95 transition-transform">
+                          {purchasedItems.includes('item_2') && (
+                            <span className="absolute inset-[-2px] rounded-full bg-[conic-gradient(from_0deg,#f43f5e,#a855f7,#22d3ee,#f43f5e)] animate-spin" style={{ animationDuration: '3s' }} />
+                          )}
+                          <span className={`absolute flex items-center justify-center rounded-full bg-gray-800 ${
+                            purchasedItems.includes('item_2') ? 'inset-[2px]' : 'inset-0 border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                          }`}>
+                            <User size={18} className="text-rose-400" />
+                          </span>
+                        </button>
                       </div>
                     </div>
-                    <button onClick={() => setActiveTab('calendar')} className="text-xs bg-gray-900 px-3 py-1.5 rounded-lg font-bold hover:bg-gray-700 transition">View Log</button>
-                  </div>
 
-                  <button onClick={() => setActiveTab('workouts')} className="w-full bg-gradient-to-r from-rose-500 to-purple-600 p-4 rounded-2xl font-black shadow-lg flex justify-between items-center group">
-                    <div className="text-left">
-                      <span className="block text-xl">Resume Workout</span>
-                      <span className="text-xs text-white/70 font-medium">Progress matrix active</span>
-                    </div>
-                    <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: CALENDAR */}
-            {activeTab === 'calendar' && (
-              <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black">Training Log</h2>
-                    <p className="text-sm text-gray-400">June 2026</p>
-                  </div>
-                  <BarChart2 size={22} className="text-rose-500" />
-                </div>
-
-                <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-4 flex justify-between items-center overflow-x-auto gap-2">
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
-                    <div key={idx} className="flex flex-col items-center space-y-2 shrink-0">
-                      <span className="text-[10px] font-bold text-gray-500">{day}</span>
-                      <div className="relative w-8 h-8">
-                        <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                          <circle cx="18" cy="18" r="16" fill="none" stroke="#2a2a35" strokeWidth="4" />
-                          <circle cx="18" cy="18" r="16" fill="none" stroke={idx % 3 === 0 ? "#ef4444" : "#10b981"} strokeWidth="4" strokeDasharray={idx % 2 === 0 ? "70 100" : "100 100"} />
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-lg">
-                  <div className="grid grid-cols-7 gap-2 mb-4 text-center">
-                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                      <span key={i} className="text-[10px] font-bold text-gray-500">{day}</span>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-2">
-                    {calendarDays.map((day, i) => (
-                      <div key={i} className="aspect-square flex items-center justify-center relative">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all
-                          ${day.status === 0 ? 'text-gray-600 hover:bg-gray-700' : ''} 
-                          ${day.status === 1 ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : ''} 
-                          ${day.status === 2 ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.4)]' : ''} 
-                          ${day.status === 3 ? 'bg-gray-900 border border-red-500/50 text-red-500' : ''} 
-                        `}>
-                          {day.date}
+                    <div className="bg-gray-950 rounded-2xl p-5 border border-gray-800 flex items-center justify-between shadow-inner">
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-300">Daily Target</h3>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Upper Body Focus</p>
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Flame size={14} className="text-rose-500" />
+                            <span className="text-xs font-medium">{caloriesBurned} / {CALORIE_GOAL} kcal</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Zap size={14} className="text-purple-500" />
+                            <span className="text-xs font-medium">{minutesActive} / {MINUTE_GOAL} mins</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Hourly Caloric Burn Intensity</h4>
-                  <div className="h-16 flex items-end justify-between px-2 pt-2 border-b border-gray-800">
-                    {[30, 15, 45, 80, 95, 40, 20, 65, 100, 35, 10, 5].map((val, i) => (
-                      <div key={i} className="w-2 rounded-t-sm transition-all duration-500 bg-gradient-to-t from-purple-600 to-rose-500" style={{ height: `${val}%` }} />
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-[9px] text-gray-500 mt-1 px-1">
-                    <span>06:00</span>
-                    <span>12:00</span>
-                    <span>18:00</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: WORKOUTS */}
-            {activeTab === 'workouts' && (
-              <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
-                 <div className="flex justify-between items-end mb-6">
-                    <div>
-                      <h2 className="text-xl font-bold tracking-tight">Today's Target</h2>
-                      <p className="text-sm text-gray-400">Push Day Matrix</p>
+                      <div className="relative w-24 h-24">
+                        <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                          <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#1f2937" strokeWidth="3" />
+                          <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f43f5e" strokeWidth="3" strokeDasharray={`${dailyTargetPct}, 100`} style={{ transition: 'stroke-dasharray 0.6s ease-out' }} strokeLinecap="round" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-xl font-black">{dailyTargetPct}%</span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-xs text-rose-400 font-bold uppercase tracking-wider bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Active</span>
                   </div>
 
-                  <div className="space-y-6">
-                    {workoutData.map((workout, index) => {
-                      const sets = workoutSets[workout.id]?.length === workout.setsCount 
-                        ? workoutSets[workout.id] 
-                        : Array(workout.setsCount).fill(false);
-                      
-                      const completedCount = sets.filter(Boolean).length;
-                      const isFullyCompleted = completedCount === sets.length;
-                      const isExpanded = expandedExercise === index;
-                      const IconComponent = workout.icon;
+                  <div className="p-6 space-y-4">
+                    <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center border border-orange-500/50">
+                          <Flame className="text-orange-500" size={20} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm">28 Day Streak</h4>
+                          <p className="text-[10px] text-gray-400">Personal Best: 42 Days</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {purchasedItems.includes('item_1') && (
+                          <span className="flex items-center space-x-1 text-[9px] font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/30">
+                            <ShieldCheck size={11} /> <span>Shielded</span>
+                          </span>
+                        )}
+                        <button onClick={() => setActiveTab('calendar')} className="text-xs bg-gray-900 px-3 py-1.5 rounded-lg font-bold hover:bg-gray-700 transition">View Log</button>
+                      </div>
+                    </div>
 
+                    <button onClick={() => setActiveTab('workouts')} className={`w-full p-4 rounded-2xl font-black shadow-lg flex justify-between items-center group transition-colors ${
+                      allWorkoutsDone ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-rose-500 to-purple-600'
+                    }`}>
+                      <div className="text-left">
+                        <span className="block text-xl">{allWorkoutsDone ? 'Workout Complete!' : 'Resume Workout'}</span>
+                        <span className="text-xs text-white/70 font-medium">
+                          {exercisesFullyDone} of {workoutData.length} exercises &middot; {completedSetsToday}/{totalSetsToday} sets logged
+                        </span>
+                      </div>
+                      {allWorkoutsDone ? <Trophy size={24} /> : <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: CALENDAR */}
+              {activeTab === 'calendar' && (
+                <div className="p-6 animate-fade">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black">Training Log</h2>
+                      <p className="text-sm text-gray-400">
+                        {/* DYNAMIC DATE ADDED HERE */}
+                        {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <BarChart2 size={22} className="text-rose-500" />
+                  </div>
+
+                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-4 flex justify-between items-center overflow-x-auto gap-2">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, idx) => {
+                      const dayIndex = TODAY_INDEX - 6 + idx;
+                      const day = last7Days[idx];
+                      if (!day) return null;
+                      const ringColor = day.status === 3 ? '#ef4444' : day.status === 1 ? '#3b82f6' : '#f43f5e';
                       return (
-                        <div 
-                          key={workout.id}
-                          className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
-                            isFullyCompleted ? 'bg-rose-950/10 border-rose-500/40' : isExpanded ? 'bg-gray-800 border-gray-600 shadow-lg' : 'bg-gray-800 border-gray-700'
-                          }`}
-                        >
-                          <div 
-                            onClick={() => setExpandedExercise(isExpanded ? null : index)}
-                            className="p-4 flex justify-between items-center cursor-pointer"
-                          >
-                            <div className="flex items-center space-x-4">
-                              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                                isFullyCompleted ? 'bg-rose-500 text-white' : 'bg-gray-700 text-gray-400'
-                              }`}>
-                                <IconComponent size={18} />
-                              </div>
-                              <div>
-                                <h3 className={`font-bold text-sm transition-colors ${isFullyCompleted ? 'text-rose-300 line-through' : 'text-white'}`}>{workout.title}</h3>
-                                <p className="text-xs text-gray-400 mt-0.5">{workout.desc}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs font-mono bg-gray-900 px-2 py-1 rounded-md border border-gray-700 text-gray-400">
-                                {completedCount}/{sets.length} Sets
-                              </span>
-                              {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-                            </div>
+                        <button key={idx} onClick={() => setSelectedDay(dayIndex)} className="flex flex-col items-center space-y-2 shrink-0">
+                          <span className={`text-[10px] font-bold ${selectedDay === dayIndex ? 'text-rose-400' : 'text-gray-500'}`}>{label}</span>
+                          <div className={`relative w-8 h-8 rounded-full transition-all ${selectedDay === dayIndex ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-gray-900' : ''}`}>
+                            <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                              <circle cx="18" cy="18" r="16" fill="none" stroke="#2a2a35" strokeWidth="4" />
+                              <circle cx="18" cy="18" r="16" fill="none" stroke={ringColor} strokeWidth="4" strokeLinecap="round" strokeDasharray={`${day.power}, 100`} />
+                            </svg>
                           </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                          {isExpanded && (
-                            <div className="px-4 pb-4 pt-2 border-t border-gray-700/50 bg-gray-800/40 space-y-5">
-                              
-                              {/* 5-SECOND LOOPING MATRIX ENGINE */}
-                              <div className="relative w-full aspect-video bg-[#0a0a0a] rounded-xl overflow-hidden border border-gray-700 flex items-center justify-center mt-2 group">
-                                {/* Base Frame: Bottom Position */}
-                                <img 
-                                  src={workout.imgEnd} 
-                                  alt={`${workout.title} down`} 
-                                  className="absolute w-full h-full object-cover" 
-                                />
-                                {/* Overlay Frame: Top Position (Runs the 5s pure CSS Crossfade loop) */}
-                                <img 
-                                  src={workout.imgStart} 
-                                  alt={`${workout.title} up`} 
-                                  className={`absolute w-full h-full object-cover animate-rep-loop ${workout.mirrorStartFrame ? 'scale-x-[-1]' : ''}`} 
-                                />
+                  <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-lg">
+                    <div className="grid grid-cols-7 gap-2 mb-4 text-center">
+                      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                        <span key={i} className="text-[10px] font-bold text-gray-500">{day}</span>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-2">
+                      {calendarDays.map((day, i) => (
+                        <div key={i} className="aspect-square flex items-center justify-center relative">
+                          <button
+                            onClick={() => day.status !== 0 && setSelectedDay(i)}
+                            disabled={day.status === 0}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all
+                              ${day.status === 0 ? 'text-gray-600' : ''} 
+                              ${day.status === 1 ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : ''} 
+                              ${day.status === 2 ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.4)]' : ''} 
+                              ${day.status === 3 ? 'bg-gray-900 border border-red-500/50 text-red-500' : ''} 
+                              ${selectedDay === i ? 'ring-2 ring-offset-2 ring-offset-gray-800 ring-white/80' : ''}
+                            `}
+                          >
+                            {day.date}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedDay !== null && calendarDays[selectedDay] && (
+                    <div className="mt-4 bg-gray-900 border border-gray-800 rounded-2xl p-5 animate-fade">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-gray-200">
+                          {new Date().toLocaleString('default', { month: 'long' })} {calendarDays[selectedDay].date}, {new Date().getFullYear()} {selectedDay === TODAY_INDEX && <span className="text-rose-400">&middot; Today</span>}
+                        </h3>
+                        <button onClick={() => setSelectedDay(null)} className="text-gray-500 hover:text-white text-xs font-bold">Close</button>
+                      </div>
+
+                      <div className="flex items-center justify-center mb-5">
+                        <div className="relative w-36 h-36">
+                          <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                            <circle cx="18" cy="18" r="15" fill="none" stroke="#27272a" strokeWidth="3.2" />
+                            <circle cx="18" cy="18" r="10.8" fill="none" stroke="#27272a" strokeWidth="3.2" />
+                            <circle cx="18" cy="18" r="6.6" fill="none" stroke="#27272a" strokeWidth="3.2" />
+                            <RingStat pct={calendarDays[selectedDay].power} radius={15} color="#f43f5e" />
+                            <RingStat pct={calendarDays[selectedDay].time} radius={10.8} color="#34d399" />
+                            <RingStat pct={calendarDays[selectedDay].discipline} radius={6.6} color="#38bdf8" />
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                            <span className="text-xs font-bold text-gray-300">Power</span>
+                          </div>
+                          <span className="text-xs text-gray-400">{calendarDays[selectedDay].power}% of goal</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                            <span className="text-xs font-bold text-gray-300">Time</span>
+                          </div>
+                          <span className="text-xs text-gray-400">{calendarDays[selectedDay].time}% of goal</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
+                            <span className="text-xs font-bold text-gray-300">Discipline</span>
+                          </div>
+                          <span className="text-xs text-gray-400">{calendarDays[selectedDay].discipline}% of goal</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Hourly Caloric Burn Intensity</h4>
+                    <div className="h-16 flex items-end justify-between px-2 pt-2 border-b border-gray-800">
+                      {[30, 15, 45, 80, 95, 40, 20, 65, 100, 35, 10, 5].map((val, i) => (
+                        <div key={i} className="w-2 rounded-t-sm transition-all duration-500 bg-gradient-to-t from-purple-600 to-rose-500" style={{ height: `${val}%` }} />
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-[9px] text-gray-500 mt-1 px-1">
+                      <span>06:00</span>
+                      <span>12:00</span>
+                      <span>18:00</span>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-2 italic">Illustrative hourly pattern — per-set timestamps aren't tracked yet.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: WORKOUTS */}
+              {activeTab === 'workouts' && (
+                <div className="p-6 animate-fade">
+                   <div className="flex justify-between items-end mb-6">
+                      <div>
+                        <h2 className="text-xl font-bold tracking-tight">Today's Target</h2>
+                        <p className="text-sm text-gray-400">Push Day Matrix</p>
+                      </div>
+                      <span className="text-xs text-rose-400 font-bold uppercase tracking-wider bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Active</span>
+                    </div>
+
+                    <div className="space-y-6">
+                      {workoutData.map((workout, index) => {
+                        const sets = getSetsArray(workout);
+                        
+                        const completedCount = sets.filter(Boolean).length;
+                        const isFullyCompleted = completedCount === sets.length;
+                        const isExpanded = expandedExercise === index;
+                        const IconComponent = workout.icon;
+
+                        return (
+                          <div 
+                            key={workout.id}
+                            className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+                              isFullyCompleted ? 'bg-rose-950/10 border-rose-500/40' : isExpanded ? 'bg-gray-800 border-gray-600 shadow-lg' : 'bg-gray-800 border-gray-700'
+                            }`}
+                          >
+                            <div 
+                              onClick={() => setExpandedExercise(isExpanded ? null : index)}
+                              className="p-4 flex justify-between items-center cursor-pointer"
+                            >
+                              <div className="flex items-center space-x-4">
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                  isFullyCompleted ? 'bg-rose-500 text-white' : 'bg-gray-700 text-gray-400'
+                                }`}>
+                                  <IconComponent size={18} />
+                                </div>
+                                <div>
+                                  <h3 className={`font-bold text-sm transition-colors ${isFullyCompleted ? 'text-rose-300 line-through' : 'text-white'}`}>{workout.title}</h3>
+                                  <p className="text-xs text-gray-400 mt-0.5">{workout.desc}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs font-mono bg-gray-900 px-2 py-1 rounded-md border border-gray-700 text-gray-400">
+                                  {completedCount}/{sets.length} Sets
+                                </span>
+                                {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="px-4 pb-4 pt-2 border-t border-gray-700/50 bg-gray-800/40 space-y-5">
                                 
-                                <div className="absolute inset-0 scan-overlay pointer-events-none" />
-                                <div className="absolute top-3 left-3 bg-black/80 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border border-rose-500/30 text-rose-400 flex items-center space-x-1.5 backdrop-blur-sm z-10">
-                                  <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse mr-1"></span> 5s Target Pace
-                                </div>
-                              </div>
-
-                              {/* Muscle Breakdown Data */}
-                              <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50 space-y-4">
-                                <p className="text-xs text-gray-400 italic mb-4 border-b border-gray-800 pb-3">{workout.mechanics}</p>
-                                
-                                <div className="flex items-start space-x-3">
-                                  <div className="mt-0.5 bg-rose-500/20 p-1.5 rounded-lg shrink-0">
-                                    <Target size={14} className="text-rose-400" />
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block mb-0.5">Primary Focus</span>
-                                    <span className="text-xs text-gray-300">{workout.primary}</span>
+                                <div className="relative w-full aspect-video bg-[#0a0a0a] rounded-xl overflow-hidden border border-gray-700 flex items-center justify-center mt-2 group">
+                                  <img 
+                                    src={workout.imgEnd} 
+                                    alt={`${workout.title} down`} 
+                                    className="absolute w-full h-full object-cover" 
+                                  />
+                                  <img 
+                                    src={workout.imgStart} 
+                                    alt={`${workout.title} up`} 
+                                    className={`absolute w-full h-full object-cover animate-rep-loop ${workout.mirrorStartFrame ? 'scale-x-[-1]' : ''}`} 
+                                  />
+                                  
+                                  <div className="absolute inset-0 scan-overlay pointer-events-none" />
+                                  <div className="absolute top-3 left-3 bg-black/80 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border border-rose-500/30 text-rose-400 flex items-center space-x-1.5 backdrop-blur-sm z-10">
+                                    <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse mr-1"></span> 5s Target Pace
                                   </div>
                                 </div>
 
-                                <div className="flex items-start space-x-3">
-                                  <div className="mt-0.5 bg-purple-500/20 p-1.5 rounded-lg shrink-0">
-                                    <Activity size={14} className="text-purple-400" />
+                                <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50 space-y-4">
+                                  <p className="text-xs text-gray-400 italic mb-4 border-b border-gray-800 pb-3">{workout.mechanics}</p>
+                                  
+                                  <div className="flex items-start space-x-3">
+                                    <div className="mt-0.5 bg-rose-500/20 p-1.5 rounded-lg shrink-0">
+                                      <Target size={14} className="text-rose-400" />
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block mb-0.5">Primary Focus</span>
+                                      <span className="text-xs text-gray-300">{workout.primary}</span>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block mb-0.5">Secondary Focus</span>
-                                    <span className="text-xs text-gray-300">{workout.secondary}</span>
+
+                                  <div className="flex items-start space-x-3">
+                                    <div className="mt-0.5 bg-purple-500/20 p-1.5 rounded-lg shrink-0">
+                                      <Activity size={14} className="text-purple-400" />
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block mb-0.5">Secondary Focus</span>
+                                      <span className="text-xs text-gray-300">{workout.secondary}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-start space-x-3">
+                                    <div className="mt-0.5 bg-blue-500/20 p-1.5 rounded-lg shrink-0">
+                                      <Shield size={14} className="text-blue-400" />
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-0.5">Stabilizers</span>
+                                      <span className="text-xs text-gray-300">{workout.synergists}</span>
+                                    </div>
                                   </div>
                                 </div>
 
-                                <div className="flex items-start space-x-3">
-                                  <div className="mt-0.5 bg-blue-500/20 p-1.5 rounded-lg shrink-0">
-                                    <Shield size={14} className="text-blue-400" />
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-0.5">Stabilizers</span>
-                                    <span className="text-xs text-gray-300">{workout.synergists}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Form Steps */}
-                              <div className="space-y-2 pt-2">
-                                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">Form Check</h4>
-                                {workout.steps.map((step, stepIdx) => (
-                                  <div key={stepIdx} className="flex items-start space-x-3">
-                                    <div className="w-5 h-5 rounded-full bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{stepIdx + 1}</div>
-                                    <p className="text-xs text-gray-400 leading-relaxed">{step}</p>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {/* Set Logging */}
-                              <div className="pt-4 border-t border-gray-700">
-                                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Track Sub-Sets</h4>
-                                <div className="grid grid-cols-1 gap-2">
-                                  {sets.map((setDone, setIdx) => (
-                                    <div 
-                                      key={setIdx}
-                                      onClick={() => toggleSetCompletion(workout.id, setIdx, workout.setsCount)}
-                                      className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                                        setDone 
-                                          ? 'bg-rose-500/10 border-rose-500/40 text-rose-200' 
-                                          : 'bg-gray-900 border-gray-800 hover:border-gray-700 text-gray-400'
-                                      }`}
-                                    >
-                                      <div className="flex items-center space-x-3">
-                                        <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${setDone ? 'bg-rose-500/20 text-rose-300' : 'bg-gray-800 text-gray-500'}`}>
-                                          SET {setIdx + 1}
-                                        </span>
-                                        <span className="text-xs font-medium">
-                                          {workout.repLabel}
-                                        </span>
-                                      </div>
-                                      
-                                      {setDone ? (
-                                        <div className="flex items-center space-x-1 text-rose-400">
-                                          <span className="text-[10px] font-bold font-mono tracking-wider uppercase bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Logged (+10G)</span>
-                                          <CheckCircle2 size={18} className="fill-rose-500 text-gray-900" />
-                                        </div>
-                                      ) : (
-                                        <Circle size={18} className="text-gray-600 hover:text-gray-400" />
-                                      )}
+                                <div className="space-y-2 pt-2">
+                                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">Form Check</h4>
+                                  {workout.steps.map((step, stepIdx) => (
+                                    <div key={stepIdx} className="flex items-start space-x-3">
+                                      <div className="w-5 h-5 rounded-full bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{stepIdx + 1}</div>
+                                      <p className="text-xs text-gray-400 leading-relaxed">{step}</p>
                                     </div>
                                   ))}
                                 </div>
+
+                                <div className="pt-4 border-t border-gray-700">
+                                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Track Sub-Sets</h4>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {sets.map((setDone, setIdx) => (
+                                      <div 
+                                        key={setIdx}
+                                        onClick={() => toggleSetCompletion(workout.id, setIdx, workout.setsCount)}
+                                        className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                                          setDone 
+                                            ? 'bg-rose-500/10 border-rose-500/40 text-rose-200' 
+                                            : 'bg-gray-900 border-gray-800 hover:border-gray-700 text-gray-400'
+                                        }`}
+                                      >
+                                        <div className="flex items-center space-x-3">
+                                          <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${setDone ? 'bg-rose-500/20 text-rose-300' : 'bg-gray-800 text-gray-500'}`}>
+                                            SET {setIdx + 1}
+                                          </span>
+                                          <span className="text-xs font-medium">
+                                            {workout.repLabel}
+                                          </span>
+                                        </div>
+                                        
+                                        {setDone ? (
+                                          <div className="flex items-center space-x-1 text-rose-400">
+                                            <span className="text-[10px] font-bold font-mono tracking-wider uppercase bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Logged (+10G)</span>
+                                            <CheckCircle2 size={18} className="fill-rose-500 text-gray-900" />
+                                          </div>
+                                        ) : (
+                                          <Circle size={18} className="text-gray-600 hover:text-gray-400" />
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                </div>
+              )}
+
+              {/* TAB: LEADERBOARD */}
+              {activeTab === 'leaderboard' && (
+                <div className="p-6 animate-fade">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-2xl font-black">Global Arena</h2>
+                      <p className="text-sm text-gray-400">Ranks refresh in 4h 12m</p>
+                    </div>
+                    <Trophy size={24} className="text-yellow-500 animate-bounce" />
+                  </div>
+
+                  <div className="space-y-3">
+                    {leaderboardData.map((warrior) => {
+                      const hasAura = warrior.isMe && purchasedItems.includes('item_3');
+                      return (
+                        <div 
+                          key={warrior.rank}
+                          className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
+                            warrior.isMe 
+                              ? hasAura
+                                ? 'bg-gradient-to-r from-yellow-950/30 to-rose-950/30 border-yellow-500 shadow-md shadow-yellow-500/20'
+                                : 'bg-gradient-to-r from-rose-950/30 to-purple-950/30 border-rose-500 shadow-md shadow-rose-500/10' 
+                              : 'bg-gray-900 border-gray-800'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <span className={`text-sm font-mono font-black w-5 text-center ${
+                              warrior.rank === 1 ? 'text-yellow-400 text-base' : warrior.rank === 2 ? 'text-gray-300' : warrior.rank === 3 ? 'text-amber-600' : 'text-gray-500'
+                            }`}>
+                              #{warrior.rank}
+                            </span>
+                            <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${warrior.avatarColor} flex items-center justify-center shadow-inner`}>
+                              <User size={14} className="text-white" />
                             </div>
-                          )}
+                            <div>
+                              <h4 className={`text-sm font-bold ${warrior.isMe ? 'text-rose-400' : 'text-gray-200'}`}>
+                                {warrior.name}{' '}
+                                {warrior.isMe && <span className="text-[10px] font-mono text-purple-400 ml-1 border border-purple-500/30 px-1 py-0.5 rounded bg-purple-500/10">YOU</span>}
+                                {hasAura && <Crown size={12} className="inline text-yellow-400 ml-1 -translate-y-0.5" />}
+                              </h4>
+                              <p className="text-[10px] text-gray-500 flex items-center">
+                                <Flame size={10} className="text-orange-500 mr-0.5" /> {warrior.streak} Day Streak
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="block text-xs font-mono font-black text-gray-200">{warrior.xp}</span>
+                            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Power XP</span>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-              </div>
-            )}
-
-            {/* TAB: LEADERBOARD */}
-            {activeTab === 'leaderboard' && (
-              <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-2xl font-black">Global Arena</h2>
-                    <p className="text-sm text-gray-400">Ranks refresh in 4h 12m</p>
-                  </div>
-                  <Trophy size={24} className="text-yellow-500 animate-bounce" />
                 </div>
+              )}
 
-                <div className="space-y-3">
-                  {leaderboardData.map((warrior) => (
-                    <div 
-                      key={warrior.rank}
-                      className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
-                        warrior.isMe 
-                          ? 'bg-gradient-to-r from-rose-950/30 to-purple-950/30 border-rose-500 shadow-md shadow-rose-500/10' 
-                          : 'bg-gray-900 border-gray-800'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <span className={`text-sm font-mono font-black w-5 text-center ${
-                          warrior.rank === 1 ? 'text-yellow-400 text-base' : warrior.rank === 2 ? 'text-gray-300' : warrior.rank === 3 ? 'text-amber-600' : 'text-gray-500'
-                        }`}>
-                          #{warrior.rank}
-                        </span>
-                        <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${warrior.avatarColor} flex items-center justify-center shadow-inner`}>
-                          <User size={14} className="text-white" />
+              {/* TAB: ITEM SHOP */}
+              {activeTab === 'shop' && (
+                <div className="p-6 animate-fade">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-2xl font-black">Armory Store</h2>
+                      <p className="text-sm text-gray-400">Trade hard-earned gold attributes</p>
+                    </div>
+                    <div className="bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center space-x-1.5">
+                      <Sparkles size={14} className="text-yellow-400" />
+                      <span className="text-sm font-mono font-black text-yellow-400">{currency}G</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {shopItems.map((item) => {
+                      const ItemIcon = item.icon;
+                      const isOwned = purchasedItems.includes(item.id);
+                      return (
+                        <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
+                          <div className="flex items-start space-x-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${item.color}`}>
+                              <ItemIcon size={22} />
+                            </div>
+                            <div className="space-y-1 pr-12">
+                              <h4 className="text-sm font-bold text-gray-100">{item.name}</h4>
+                              <p className="text-xs text-gray-400 leading-normal">{item.desc}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-gray-800/60 flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Item Grade: Tier 1</span>
+                            {isOwned ? (
+                              <button disabled className="bg-gray-800 text-gray-500 text-xs px-4 py-2 rounded-xl font-bold border border-gray-700 flex items-center space-x-1">
+                                <Lock size={12} /> <span>Equipped</span>
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => {
+                                  if (currency >= item.price) {
+                                    setCurrency(c => c - item.price);
+                                    setPurchasedItems(prev => [...prev, item.id]);
+                                  }
+                                }} 
+                                disabled={currency < item.price}
+                                className={`text-xs px-4 py-2 rounded-xl font-black shadow transition-all ${
+                                  currency >= item.price 
+                                    ? 'bg-gradient-to-r from-yellow-500 to-amber-600 text-white hover:opacity-90 active:scale-95' 
+                                    : 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-800'
+                                }`}
+                              >
+                                Unlock For {item.price}G
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: PROFILE */}
+              {activeTab === 'profile' && (
+                <div className="p-6 animate-fade">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-black">Commander Profile</h2>
+                  </div>
+                  
+                  <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 text-center relative overflow-hidden mb-6">
+                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl"></div>
+                    <div className="relative w-20 h-20 mx-auto mb-3">
+                      {purchasedItems.includes('item_2') && (
+                        <span className="absolute inset-[-3px] rounded-full bg-[conic-gradient(from_0deg,#f43f5e,#a855f7,#22d3ee,#f43f5e)] animate-spin" style={{ animationDuration: '3s' }} />
+                      )}
+                      <div className={`absolute flex items-center justify-center rounded-full bg-gray-900 ${
+                        purchasedItems.includes('item_2') ? 'inset-[3px]' : 'inset-0 border-4 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.4)]'
+                      }`}>
+                        <Crown size={32} className="text-purple-400" />
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-bold">Level 42 Overlord</h3>
+                    <p className="text-xs text-purple-400 font-medium mt-1">Next rank in 14,000 XP</p>
+                    
+                    <div className="w-full bg-gray-900 h-2 rounded-full mt-4 border border-gray-700 overflow-hidden">
+                      <div className="bg-gradient-to-r from-rose-500 to-purple-500 h-full w-[80%] rounded-full"></div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Achievements & Badges</h4>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="flex items-center p-3 bg-gray-900 rounded-xl border border-gray-800">
+                        <div className="text-2xl mr-4 p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                          <Timer className="text-yellow-500" size={20} />
                         </div>
                         <div>
-                          <h4 className={`text-sm font-bold ${warrior.isMe ? 'text-rose-400' : 'text-gray-200'}`}>
-                            {warrior.name} {warrior.isMe && <span className="text-[10px] font-mono text-purple-400 ml-1 border border-purple-500/30 px-1 py-0.5 rounded bg-purple-500/10">YOU</span>}
-                          </h4>
-                          <p className="text-[10px] text-gray-500 flex items-center">
-                            <Flame size={10} className="text-orange-500 mr-0.5" /> {warrior.streak} Day Streak
-                          </p>
+                          <h5 className="font-bold text-sm text-yellow-500">8-Year Pushup Mastery</h5>
+                          <p className="text-[10px] text-gray-400">Maintained calisthenics discipline for 8 years.</p>
                         </div>
                       </div>
-
-                      <div className="text-right">
-                        <span className="block text-xs font-mono font-black text-gray-200">{warrior.xp}</span>
-                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Power XP</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* TAB: ITEM SHOP */}
-            {activeTab === 'shop' && (
-              <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-2xl font-black">Armory Store</h2>
-                    <p className="text-sm text-gray-400">Trade hard-earned gold attributes</p>
-                  </div>
-                  <div className="bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center space-x-1.5">
-                    <Sparkles size={14} className="text-yellow-400" />
-                    <span className="text-sm font-mono font-black text-yellow-400">{currency}G</span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {shopItems.map((item) => {
-                    const ItemIcon = item.icon;
-                    return (
-                      <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
-                        <div className="flex items-start space-x-4">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${item.color}`}>
-                            <ItemIcon size={22} />
-                          </div>
-                          <div className="space-y-1 pr-12">
-                            <h4 className="text-sm font-bold text-gray-100">{item.name}</h4>
-                            <p className="text-xs text-gray-400 leading-normal">{item.desc}</p>
-                          </div>
+                      <div className="flex items-center p-3 bg-gray-900 rounded-xl border border-gray-800">
+                        <div className="text-2xl mr-4 p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                          <Shield className="text-blue-400" size={20} />
                         </div>
-
-                        <div className="mt-4 pt-3 border-t border-gray-800/60 flex items-center justify-between">
-                          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Item Grade: Tier 1</span>
-                          {item.purchased ? (
-                            <button disabled className="bg-gray-800 text-gray-500 text-xs px-4 py-2 rounded-xl font-bold border border-gray-700 flex items-center space-x-1">
-                              <Lock size={12} /> <span>Equipped</span>
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={() => {
-                                if (currency >= item.price) {
-                                  setCurrency(c => c - item.price);
-                                  item.purchased = true;
-                                }
-                              }} 
-                              disabled={currency < item.price}
-                              className={`text-xs px-4 py-2 rounded-xl font-black shadow transition-all ${
-                                currency >= item.price 
-                                  ? 'bg-gradient-to-r from-yellow-500 to-amber-600 text-white hover:opacity-90 active:scale-95' 
-                                  : 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-800'
-                              }`}
-                            >
-                              Unlock For {item.price}G
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* TAB: PROFILE */}
-            {activeTab === 'profile' && (
-              <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-black">Commander Profile</h2>
-                  <button onClick={handleLogout} className="text-xs font-bold text-gray-500 hover:text-rose-500 bg-gray-800 px-3 py-1.5 rounded-lg transition-colors border border-gray-700">
-                    Log Out
-                  </button>
-                </div>
-                
-                <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 text-center relative overflow-hidden mb-6">
-                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl"></div>
-                  <div className="w-20 h-20 mx-auto rounded-full border-4 border-purple-500 flex items-center justify-center bg-gray-900 mb-3 shadow-[0_0_20px_rgba(168,85,247,0.4)]">
-                    <Crown size={32} className="text-purple-400" />
-                  </div>
-                  <h3 className="text-xl font-bold">Level 42 Overlord</h3>
-                  <p className="text-xs text-purple-400 font-medium mt-1">Next rank in 14,000 XP</p>
-                  
-                  <div className="w-full bg-gray-900 h-2 rounded-full mt-4 border border-gray-700 overflow-hidden">
-                    <div className="bg-gradient-to-r from-rose-500 to-purple-500 h-full w-[80%] rounded-full"></div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Achievements & Badges</h4>
-                  
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="flex items-center p-3 bg-gray-900 rounded-xl border border-gray-800">
-                      <div className="text-2xl mr-4 p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                        <Timer className="text-yellow-500" size={20} />
-                      </div>
-                      <div>
-                        <h5 className="font-bold text-sm text-yellow-500">8-Year Pushup Mastery</h5>
-                        <p className="text-[10px] text-gray-400">Maintained calisthenics discipline for 8 years.</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center p-3 bg-gray-900 rounded-xl border border-gray-800">
-                      <div className="text-2xl mr-4 p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                        <Shield className="text-blue-400" size={20} />
-                      </div>
-                      <div>
-                        <h5 className="font-bold text-sm text-blue-400">Iron Core</h5>
-                        <p className="text-[10px] text-gray-400">Unlocked Advanced Hollow-Body Movements.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: SETTINGS */}
-            {activeTab === 'settings' && (
-              <div className="flex-1 overflow-y-auto pb-24 p-6 animate-fade">
-                <div className="flex items-center space-x-3 mb-6">
-                  <button onClick={() => setActiveTab('home')} className="text-gray-400 hover:text-white">
-                    <ArrowLeft size={20} />
-                  </button>
-                  <h2 className="text-2xl font-black">Settings</h2>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Feedback</h4>
-                    <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800">
-                      <div className="flex items-center justify-between p-4">
-                        <div className="flex items-center space-x-3">
-                          <Vibrate size={18} className="text-gray-400 shrink-0" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-200">Vibration</p>
-                            <p className="text-[11px] text-gray-500">Haptic feedback on reps & milestones</p>
-                          </div>
-                        </div>
-                        <Toggle checked={settings.vibration} onChange={() => setSettings((s) => ({ ...s, vibration: !s.vibration }))} />
-                      </div>
-                      <div className="flex items-center justify-between p-4">
-                        <div className="flex items-center space-x-3">
-                          <Volume2 size={18} className="text-gray-400 shrink-0" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-200">Sound Effects</p>
-                            <p className="text-[11px] text-gray-500">Level-up & rep-complete chimes</p>
-                          </div>
-                        </div>
-                        <Toggle checked={settings.sound} onChange={() => setSettings((s) => ({ ...s, sound: !s.sound }))} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Workout</h4>
-                    <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800">
-                      <div className="flex items-center justify-between p-4">
-                        <div className="flex items-center space-x-3">
-                          <Timer size={18} className="text-gray-400 shrink-0" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-200">Auto Rest Timer</p>
-                            <p className="text-[11px] text-gray-500">Starts a countdown between sets</p>
-                          </div>
-                        </div>
-                        <Toggle checked={settings.autoRestTimer} onChange={() => setSettings((s) => ({ ...s, autoRestTimer: !s.autoRestTimer }))} />
-                      </div>
-                      <div className="flex items-center justify-between p-4">
-                        <div className="flex items-center space-x-3">
-                          <Ruler size={18} className="text-gray-400 shrink-0" />
-                          <p className="text-sm font-medium text-gray-200">Weight Unit</p>
-                        </div>
-                        <div className="flex bg-gray-800 rounded-lg p-1">
-                          <button
-                            onClick={() => setSettings((s) => ({ ...s, units: 'kg' }))}
-                            className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${settings.units === 'kg' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
-                          >
-                            KG
-                          </button>
-                          <button
-                            onClick={() => setSettings((s) => ({ ...s, units: 'lb' }))}
-                            className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${settings.units === 'lb' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
-                          >
-                            LB
-                          </button>
+                        <div>
+                          <h5 className="font-bold text-sm text-blue-400">Iron Core</h5>
+                          <p className="text-[10px] text-gray-400">Unlocked Advanced Hollow-Body Movements.</p>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* FIVE-BUTTON PREMIUM NAVIGATION BAR */}
-            <div className="absolute bottom-0 w-full bg-gray-950/95 backdrop-blur-md border-t border-gray-800 p-4 pb-6 flex justify-between items-center z-20 px-6">
+              {/* TAB: SETTINGS */}
+              {activeTab === 'settings' && (
+                <div className="p-6 animate-fade">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <button onClick={() => setActiveTab('home')} className="text-gray-400 hover:text-white">
+                      <ArrowLeft size={20} />
+                    </button>
+                    <h2 className="text-2xl font-black">Settings</h2>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Feedback</h4>
+                      <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800">
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center space-x-3">
+                            <Vibrate size={18} className="text-gray-400 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-200">Vibration</p>
+                              <p className="text-[11px] text-gray-500">Haptic feedback on reps & milestones</p>
+                            </div>
+                          </div>
+                          <Toggle checked={settings.vibration} onChange={() => setSettings((s) => ({ ...s, vibration: !s.vibration }))} />
+                        </div>
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center space-x-3">
+                            <Volume2 size={18} className="text-gray-400 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-200">Sound Effects</p>
+                              <p className="text-[11px] text-gray-500">Level-up & rep-complete chimes</p>
+                            </div>
+                          </div>
+                          <Toggle checked={settings.sound} onChange={() => setSettings((s) => ({ ...s, sound: !s.sound }))} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Notifications</h4>
+                      <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800">
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center space-x-3">
+                            <Bell size={18} className="text-gray-400 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-200">Daily Reminder</p>
+                              <p className="text-[11px] text-gray-500">Nudge if you haven't trained by 6 PM</p>
+                            </div>
+                          </div>
+                          <Toggle checked={settings.dailyReminder} onChange={() => setSettings((s) => ({ ...s, dailyReminder: !s.dailyReminder }))} />
+                        </div>
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center space-x-3">
+                            <Flame size={18} className="text-gray-400 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-200">Streak Risk Alerts</p>
+                              <p className="text-[11px] text-gray-500">Warn before your streak expires</p>
+                            </div>
+                          </div>
+                          <Toggle checked={settings.streakAlerts} onChange={() => setSettings((s) => ({ ...s, streakAlerts: !s.streakAlerts }))} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Privacy</h4>
+                      <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800">
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center space-x-3">
+                            <Shield size={18} className="text-gray-400 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-200">Show on Leaderboard</p>
+                              <p className="text-[11px] text-gray-500">Let other warriors see your rank</p>
+                            </div>
+                          </div>
+                          <Toggle checked={settings.leaderboardVisible} onChange={() => setSettings((s) => ({ ...s, leaderboardVisible: !s.leaderboardVisible }))} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-rose-500 uppercase tracking-widest mb-3">Danger Zone</h4>
+                      <div className="bg-rose-950/10 rounded-2xl border border-rose-500/20 p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-200">Reset Progress</p>
+                          <p className="text-[11px] text-gray-500">Clears gold, sets, and shop items.</p>
+                        </div>
+                        {/* ADDED CONFIRMATION MODAL LOGIC HERE */}
+                        <button onClick={resetProgress} className="flex items-center space-x-1.5 text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-2 rounded-lg border border-rose-500/30 hover:bg-rose-500/20 transition-colors shrink-0 ml-3">
+                          <RotateCcw size={13} /> <span>Reset</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: ABOUT US */}
+              {activeTab === 'about' && (
+                <div className="p-6 animate-fade">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <button onClick={() => setActiveTab('home')} className="text-gray-400 hover:text-white">
+                      <ArrowLeft size={20} />
+                    </button>
+                    <h2 className="text-2xl font-black">About Us</h2>
+                  </div>
+
+                  <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 text-center mb-6">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg">
+                      <Dumbbell size={28} className="text-white" />
+                    </div>
+                    <h3 className="text-lg font-black">The RPG Fitness Experience</h3>
+                    <p className="text-xs text-gray-500 mt-1">Version 1.0.0</p>
+                  </div>
+
+                  <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                    Built for warriors who'd rather grind XP than count reps in silence. Every set earns progress, every streak protects your rank, and every milestone unlocks something worth showing off.
+                  </p>
+
+                  <div className="space-y-3 mb-8">
+                    <div className="flex items-center justify-between bg-gray-900 rounded-xl border border-gray-800 p-4">
+                      <span className="text-sm text-gray-300">Contact Support</span>
+                      <span className="text-xs text-rose-400 font-medium">support@fittrack.com</span>
+                    </div>
+                    <button className="w-full flex items-center justify-between bg-gray-900 rounded-xl border border-gray-800 p-4 hover:border-gray-700 transition-colors">
+                      <span className="text-sm text-gray-300">Privacy Policy</span>
+                      <ChevronRight size={16} className="text-gray-500" />
+                    </button>
+                    <button className="w-full flex items-center justify-between bg-gray-900 rounded-xl border border-gray-800 p-4 hover:border-gray-700 transition-colors">
+                      <span className="text-sm text-gray-300">Terms of Service</span>
+                      <ChevronRight size={16} className="text-gray-500" />
+                    </button>
+                  </div>
+
+                  {/* ADDED SPACING AND UPWORK LINK HERE */}
+                  <div className="mt-12 pb-32 text-center flex flex-col items-center justify-center border-t border-gray-800 pt-8">
+                    <p className="text-gray-500 text-xs tracking-widest uppercase mb-1">
+                      Designed & Built By
+                    </p>
+                    <h3 className="font-bold text-white text-lg">Nahom</h3>
+                    <p className="text-gray-400 text-sm mt-1">
+                      Available for freelance work on{' '}
+                      <a
+                        href="https://www.upwork.com/freelancers/~01YOURPROFILEID" // <-- UPDATE THIS LINK
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#14a800] hover:underline font-medium transition-all"
+                      >
+                        Upwork
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* FIXED BOTTOM NAVIGATION BAR */}
+            <div className="flex-none absolute bottom-0 w-full bg-gray-950/95 backdrop-blur-md border-t border-gray-800 p-4 pb-6 flex justify-between items-center z-20 px-6">
               <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center transition-colors ${activeTab === 'home' ? 'text-rose-500' : 'text-gray-500 hover:text-gray-300'}`}>
                 <Home size={18} className="mb-1" />
                 <span className="text-[9px] font-bold tracking-wider uppercase">Home</span>
@@ -1030,6 +1300,13 @@ export default function FullFitnessTracker() {
                     <span className="text-sm font-medium text-gray-200">Settings</span>
                   </button>
                   <button
+                    onClick={() => { setActiveTab('about'); setShowAccountMenu(false); }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-800 transition-colors text-left border-t border-gray-800"
+                  >
+                    <Info size={18} className="text-gray-400" />
+                    <span className="text-sm font-medium text-gray-200">About Us</span>
+                  </button>
+                  <button
                     onClick={handleLogout}
                     className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-rose-950/30 transition-colors text-left border-t border-gray-800"
                   >
@@ -1042,6 +1319,39 @@ export default function FullFitnessTracker() {
 
           </div>
         )}
+        {/* This is the Modal that only shows when showResetModal is true */}
+          {showResetModal && (
+             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+              <div className="bg-gray-800 border border-gray-700 p-6 rounded-2xl w-full max-w-xs shadow-2xl">
+                <h3 className="text-lg font-bold text-white mb-2">Reset Progress</h3>
+                <p className="text-sm text-gray-400 mb-6">
+                  Are you sure you want to reset all your progress? This action cannot be undone.
+                </p>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowResetModal(false)}
+                    className="flex-1 px-4 py-2 bg-gray-700 rounded-lg text-sm font-medium hover:bg-gray-600 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      // THIS IS WHERE YOUR ACTUAL RESET LOGIC GOES
+                      try {
+                        localStorage.removeItem('fittrack_save');
+                      } catch (e) {
+                        console.error('Could not clear saved progress', e);
+                      }
+                      window.location.reload();
+                    }}
+                    className="flex-1 px-4 py-2 bg-rose-600 rounded-lg text-sm font-medium hover:bg-rose-500 transition"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+             </div>
+          )}
 
       </div>
     </div>
