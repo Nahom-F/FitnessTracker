@@ -1042,7 +1042,7 @@ export default function FullFitnessTracker() {
 
               {/* TAB: PROFILE */}
               {activeTab === 'profile' && (
-                <div className="p-6 animate-fade">
+                <div className="px-6 pb-6 pt-24 animate-fade">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-black">Commander Profile</h2>
                   </div>
@@ -1277,7 +1277,7 @@ export default function FullFitnessTracker() {
             </div>
 
             {/* FLOATING TOP CONTROLS — fixed in place; everything else scrolls beneath them */}
-            {(activeTab === 'settings' || activeTab === 'about') && (
+            {(activeTab === 'settings' || activeTab === 'about' || activeTab === 'profile') && (
               <button
                 onClick={() => setActiveTab('home')}
                 className="absolute top-6 left-6 z-30 w-10 h-10 rounded-full bg-gray-900/80 backdrop-blur-md border border-gray-700 flex items-center justify-center text-gray-300 hover:text-white active:scale-95 transition-all shadow-lg"
