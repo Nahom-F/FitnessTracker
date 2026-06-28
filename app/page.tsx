@@ -33,8 +33,42 @@ import {
   Info,
   Bell,
   MoveHorizontal,
-  RotateCcw
+  RotateCcw,
+  Swords
 } from 'lucide-react';
+
+// --- AVATAR CUSTOMIZATION PRESETS ---
+const AVATAR_ICONS: Record<string, any> = { Crown, Swords, Shield, Flame, Zap, Dumbbell, Target, Trophy };
+const AVATAR_EMOJIS = ['💪', '🔥', '🏋️', '🥷', '⚡', '🦾', '🎯', '💎'];
+const GRADIENT_PRESETS: Record<string, string> = {
+  roseViolet: 'from-rose-500 to-purple-600',
+  skyBlue: 'from-cyan-400 to-blue-600',
+  goldAmber: 'from-yellow-400 to-orange-600',
+  emerald: 'from-emerald-400 to-teal-600',
+};
+const SOLID_PRESETS: Record<string, string> = {
+  rose: '#f43f5e',
+  blue: '#3b82f6',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  purple: '#a855f7',
+  slate: '#64748b',
+};
+
+function AvatarGlyph({ config, size = 20 }: { config: { type: string; icon: string; emoji: string; colorMode: string; gradient: string; solidColor: string }; size?: number }) {
+  const bgClass = config.colorMode === 'gradient' ? `bg-gradient-to-br ${GRADIENT_PRESETS[config.gradient] || GRADIENT_PRESETS.roseViolet}` : '';
+  const bgStyle = config.colorMode === 'solid' ? { backgroundColor: SOLID_PRESETS[config.solidColor] || SOLID_PRESETS.rose } : {};
+  const IconComp = AVATAR_ICONS[config.icon] || Crown;
+  return (
+    <div className={`w-full h-full rounded-full flex items-center justify-center ${bgClass}`} style={bgStyle}>
+      {config.type === 'emoji' ? (
+        <span style={{ fontSize: size, lineHeight: 1 }}>{config.emoji}</span>
+      ) : (
+        <IconComp size={size} className="text-white" />
+      )}
+    </div>
+  );
+}
 
 // --- DATA MOVED OUTSIDE COMPONENT ---
 // Static data that doesn't change can live outside to make the app faster
@@ -121,6 +155,15 @@ export default function FullFitnessTracker() {
   const [maxPushups, setMaxPushups] = useState<number>(20);
   const [experience, setExperience] = useState<string>('advanced');
 
+  const [avatarConfig, setAvatarConfig] = useState({
+    type: 'icon' as 'icon' | 'emoji',
+    icon: 'Crown',
+    emoji: '💪',
+    colorMode: 'gradient' as 'gradient' | 'solid',
+    gradient: 'roseViolet',
+    solidColor: 'rose',
+  });
+
   // LOAD SAVED PROGRESS
   useEffect(() => {
     try {
@@ -138,6 +181,7 @@ export default function FullFitnessTracker() {
         if (data.weight) setWeight(data.weight);
         if (typeof data.maxPushups === 'number') setMaxPushups(data.maxPushups);
         if (data.experience) setExperience(data.experience);
+        if (data.avatarConfig) setAvatarConfig((a) => ({ ...a, ...data.avatarConfig }));
       }
     } catch (e) {
       console.error('Could not load saved progress', e);
@@ -151,12 +195,12 @@ export default function FullFitnessTracker() {
     try {
       localStorage.setItem('fittrack_save', JSON.stringify({
         currentView, authMode, activeTab, currency, purchasedItems, workoutSets,
-        settings, age, weight, maxPushups, experience
+        settings, age, weight, maxPushups, experience, avatarConfig
       }));
     } catch (e) {
       console.error('Could not save progress', e);
     }
-  }, [isLoaded, currentView, authMode, activeTab, currency, purchasedItems, workoutSets, settings, age, weight, maxPushups, experience]);
+  }, [isLoaded, currentView, authMode, activeTab, currency, purchasedItems, workoutSets, settings, age, weight, maxPushups, experience, avatarConfig]);
 
   // RESET BUTTON CONFIRMATION
   const resetProgress = () => {
@@ -1053,10 +1097,10 @@ export default function FullFitnessTracker() {
                       {purchasedItems.includes('item_2') && (
                         <span className="absolute inset-[-3px] rounded-full bg-[conic-gradient(from_0deg,#f43f5e,#a855f7,#22d3ee,#f43f5e)] animate-spin" style={{ animationDuration: '3s' }} />
                       )}
-                      <div className={`absolute flex items-center justify-center rounded-full bg-gray-900 ${
+                      <div className={`absolute flex items-center justify-center rounded-full overflow-hidden ${
                         purchasedItems.includes('item_2') ? 'inset-[3px]' : 'inset-0 border-4 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.4)]'
                       }`}>
-                        <Crown size={32} className="text-purple-400" />
+                        <AvatarGlyph config={avatarConfig} size={32} />
                       </div>
                     </div>
                     <h3 className="text-xl font-bold">Level 42 Overlord</h3>
@@ -1100,6 +1144,99 @@ export default function FullFitnessTracker() {
                   <h2 className="text-2xl font-black mb-6">Settings</h2>
 
                   <div className="space-y-6">
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Avatar</h4>
+                      <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 space-y-4">
+                        <div className="flex justify-center">
+                          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-700">
+                            <AvatarGlyph config={avatarConfig} size={28} />
+                          </div>
+                        </div>
+
+                        <div className="flex bg-gray-800 rounded-lg p-1">
+                          <button
+                            onClick={() => setAvatarConfig((a) => ({ ...a, type: 'icon' }))}
+                            className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-colors ${avatarConfig.type === 'icon' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
+                          >
+                            Icon
+                          </button>
+                          <button
+                            onClick={() => setAvatarConfig((a) => ({ ...a, type: 'emoji' }))}
+                            className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-colors ${avatarConfig.type === 'emoji' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
+                          >
+                            Emoji
+                          </button>
+                        </div>
+
+                        {avatarConfig.type === 'icon' ? (
+                          <div className="grid grid-cols-4 gap-2">
+                            {Object.keys(AVATAR_ICONS).map((iconKey) => {
+                              const IconOption = AVATAR_ICONS[iconKey];
+                              return (
+                                <button
+                                  key={iconKey}
+                                  onClick={() => setAvatarConfig((a) => ({ ...a, icon: iconKey }))}
+                                  className={`aspect-square rounded-xl flex items-center justify-center border transition-all ${avatarConfig.icon === iconKey ? 'border-rose-500 bg-rose-500/10' : 'border-gray-800 bg-gray-800/50'}`}
+                                >
+                                  <IconOption size={18} className={avatarConfig.icon === iconKey ? 'text-rose-400' : 'text-gray-400'} />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-4 gap-2">
+                            {AVATAR_EMOJIS.map((emo) => (
+                              <button
+                                key={emo}
+                                onClick={() => setAvatarConfig((a) => ({ ...a, emoji: emo }))}
+                                className={`aspect-square rounded-xl flex items-center justify-center text-lg border transition-all ${avatarConfig.emoji === emo ? 'border-rose-500 bg-rose-500/10' : 'border-gray-800 bg-gray-800/50'}`}
+                              >
+                                {emo}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex bg-gray-800 rounded-lg p-1">
+                          <button
+                            onClick={() => setAvatarConfig((a) => ({ ...a, colorMode: 'gradient' }))}
+                            className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-colors ${avatarConfig.colorMode === 'gradient' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
+                          >
+                            Gradient
+                          </button>
+                          <button
+                            onClick={() => setAvatarConfig((a) => ({ ...a, colorMode: 'solid' }))}
+                            className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-colors ${avatarConfig.colorMode === 'solid' ? 'bg-rose-500 text-white' : 'text-gray-400'}`}
+                          >
+                            Plain Color
+                          </button>
+                        </div>
+
+                        {avatarConfig.colorMode === 'gradient' ? (
+                          <div className="flex justify-between px-1">
+                            {Object.keys(GRADIENT_PRESETS).map((key) => (
+                              <button
+                                key={key}
+                                onClick={() => setAvatarConfig((a) => ({ ...a, gradient: key }))}
+                                className={`w-9 h-9 rounded-full bg-gradient-to-br ${GRADIENT_PRESETS[key]} ${avatarConfig.gradient === key ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900' : ''}`}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex justify-between px-1">
+                            {Object.keys(SOLID_PRESETS).map((key) => (
+                              <button
+                                key={key}
+                                onClick={() => setAvatarConfig((a) => ({ ...a, solidColor: key }))}
+                                style={{ backgroundColor: SOLID_PRESETS[key] }}
+                                className={`w-9 h-9 rounded-full ${avatarConfig.solidColor === key ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900' : ''}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div>
                       <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Feedback</h4>
                       <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800">
@@ -1294,10 +1431,10 @@ export default function FullFitnessTracker() {
                 {purchasedItems.includes('item_2') && (
                   <span className="absolute inset-[-2px] rounded-full bg-[conic-gradient(from_0deg,#f43f5e,#a855f7,#22d3ee,#f43f5e)] animate-spin" style={{ animationDuration: '3s' }} />
                 )}
-                <span className={`absolute flex items-center justify-center rounded-full bg-gray-800 ${
+                <span className={`absolute flex items-center justify-center rounded-full overflow-hidden ${
                   purchasedItems.includes('item_2') ? 'inset-[2px]' : 'inset-0 border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
                 }`}>
-                  <User size={18} className="text-rose-400" />
+                  <AvatarGlyph config={avatarConfig} size={18} />
                 </span>
               </button>
             )}
