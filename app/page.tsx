@@ -77,11 +77,11 @@ function AvatarGlyph({ config, size = 20 }: { config: { type: string; icon: stri
 // --- DATA MOVED OUTSIDE COMPONENT ---
 // Static data that doesn't change can live outside to make the app faster
 const leaderboardData = [
-  { rank: 1, name: "Vanguard_Overlord", xp: "142,050", streak: 120, avatarColor: "from-yellow-400 to-amber-600", isMe: false },
-  { rank: 2, name: "SleeperBuildPro", xp: "128,400", streak: 84, avatarColor: "from-purple-500 to-indigo-600", isMe: false },
-  { rank: 3, name: "CalisthenicsKing", xp: "115,900", streak: 56, avatarColor: "from-cyan-400 to-blue-600", isMe: false },
-  { rank: 4, name: "You", xp: "98,350", streak: 28, avatarColor: "from-rose-500 to-purple-600", isMe: true },
-  { rank: 5, name: "HollowBodyWarrior", xp: "84,100", streak: 19, avatarColor: "from-emerald-400 to-teal-600", isMe: false },
+  { rank: 1, name: "Vanguard_Overlord", xp: "142,050", streak: 120, avatarColor: "from-yellow-400 to-amber-600", isMe: false, title: "Overlord", statsVisible: true, achievement: "Iron Will — 120 Day Unbroken Streak", power: 92, time: 88, discipline: 95, weekPattern: [70, 85, 60, 95, 100, 80, 90] },
+  { rank: 2, name: "SleeperBuildPro", xp: "128,400", streak: 84, avatarColor: "from-purple-500 to-indigo-600", isMe: false, title: "Sleeper Build", statsVisible: true, achievement: "Diamond Push-Up Mastery", power: 80, time: 75, discipline: 85, weekPattern: [60, 70, 90, 50, 80, 95, 70] },
+  { rank: 3, name: "CalisthenicsKing", xp: "115,900", streak: 56, avatarColor: "from-cyan-400 to-blue-600", isMe: false, title: "Calisthenics King", statsVisible: true, achievement: "Hollow Body Specialist", power: 70, time: 65, discipline: 78, weekPattern: [50, 60, 70, 65, 80, 55, 75] },
+  { rank: 4, name: "You", xp: "98,350", streak: 28, avatarColor: "from-rose-500 to-purple-600", isMe: true, title: "Overlord", statsVisible: true, achievement: "8-Year Pushup Mastery", power: 0, time: 0, discipline: 0, weekPattern: [] },
+  { rank: 5, name: "HollowBodyWarrior", xp: "84,100", streak: 19, avatarColor: "from-emerald-400 to-teal-600", isMe: false, title: "Rising Star", statsVisible: false, achievement: "Most Improved Warrior", power: 55, time: 60, discipline: 50, weekPattern: [40, 55, 30, 60, 45, 50, 35] },
 ];
 
 const shopItems = [
@@ -136,6 +136,7 @@ export default function FullFitnessTracker() {
   
   // App States
   const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
+  const [expandedProfile, setExpandedProfile] = useState<number | null>(null);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [currency, setCurrency] = useState<number>(350);
   const [purchasedItems, setPurchasedItems] = useState<string[]>(['item_2']);
@@ -1009,10 +1010,17 @@ export default function FullFitnessTracker() {
                   <div className="space-y-3">
                     {leaderboardData.map((warrior) => {
                       const hasAura = warrior.isMe && purchasedItems.includes('item_3');
+                      const isExpanded = expandedProfile === warrior.rank;
+                      const isVisible = warrior.isMe ? settings.leaderboardVisible : warrior.statsVisible;
+                      const dPower = warrior.isMe ? calorieProgress : warrior.power;
+                      const dTime = warrior.isMe ? minuteProgress : warrior.time;
+                      const dDiscipline = warrior.isMe ? dailyTargetPct : warrior.discipline;
+                      const dWeek = warrior.isMe ? last7Days.map((d) => d.power) : warrior.weekPattern;
+
                       return (
                         <div 
                           key={warrior.rank}
-                          className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
+                          className={`rounded-2xl border transition-all overflow-hidden ${
                             warrior.isMe 
                               ? hasAura
                                 ? 'bg-gradient-to-r from-yellow-950/30 to-rose-950/30 border-yellow-500 shadow-md shadow-yellow-500/20'
@@ -1020,31 +1028,96 @@ export default function FullFitnessTracker() {
                               : 'bg-gray-900 border-gray-800'
                           }`}
                         >
-                          <div className="flex items-center space-x-4">
-                            <span className={`text-sm font-mono font-black w-5 text-center ${
-                              warrior.rank === 1 ? 'text-yellow-400 text-base' : warrior.rank === 2 ? 'text-gray-300' : warrior.rank === 3 ? 'text-amber-600' : 'text-gray-500'
-                            }`}>
-                              #{warrior.rank}
-                            </span>
-                            <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${warrior.avatarColor} flex items-center justify-center shadow-inner`}>
-                              <User size={14} className="text-white" />
+                          <button
+                            onClick={() => setExpandedProfile(isExpanded ? null : warrior.rank)}
+                            className="w-full p-4 flex items-center justify-between text-left"
+                          >
+                            <div className="flex items-center space-x-4">
+                              <span className={`text-sm font-mono font-black w-5 text-center ${
+                                warrior.rank === 1 ? 'text-yellow-400 text-base' : warrior.rank === 2 ? 'text-gray-300' : warrior.rank === 3 ? 'text-amber-600' : 'text-gray-500'
+                              }`}>
+                                #{warrior.rank}
+                              </span>
+                              <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${warrior.avatarColor} flex items-center justify-center shadow-inner shrink-0`}>
+                                {warrior.isMe ? <AvatarGlyph config={avatarConfig} size={14} /> : <User size={14} className="text-white" />}
+                              </div>
+                              <div>
+                                <h4 className={`text-sm font-bold ${warrior.isMe ? 'text-rose-400' : 'text-gray-200'}`}>
+                                  {warrior.isMe ? (userName || 'Warrior') : warrior.name}{' '}
+                                  {warrior.isMe && <span className="text-[10px] font-mono text-purple-400 ml-1 border border-purple-500/30 px-1 py-0.5 rounded bg-purple-500/10">YOU</span>}
+                                  {hasAura && <Crown size={12} className="inline text-yellow-400 ml-1 -translate-y-0.5" />}
+                                </h4>
+                                <p className="text-[10px] text-gray-500 flex items-center">
+                                  <Flame size={10} className="text-orange-500 mr-0.5" /> {warrior.streak} Day Streak
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className={`text-sm font-bold ${warrior.isMe ? 'text-rose-400' : 'text-gray-200'}`}>
-                                {warrior.isMe ? (userName || 'Warrior') : warrior.name}{' '}
-                                {warrior.isMe && <span className="text-[10px] font-mono text-purple-400 ml-1 border border-purple-500/30 px-1 py-0.5 rounded bg-purple-500/10">YOU</span>}
-                                {hasAura && <Crown size={12} className="inline text-yellow-400 ml-1 -translate-y-0.5" />}
-                              </h4>
-                              <p className="text-[10px] text-gray-500 flex items-center">
-                                <Flame size={10} className="text-orange-500 mr-0.5" /> {warrior.streak} Day Streak
-                              </p>
-                            </div>
-                          </div>
 
-                          <div className="text-right">
-                            <span className="block text-xs font-mono font-black text-gray-200">{warrior.xp}</span>
-                            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Power XP</span>
-                          </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="text-right">
+                                <span className="block text-xs font-mono font-black text-gray-200">{warrior.xp}</span>
+                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Power XP</span>
+                              </div>
+                              <ChevronDown size={16} className={`text-gray-500 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="px-4 pb-4 pt-1 border-t border-gray-800/60">
+                              {isVisible ? (
+                                <div className="space-y-4 animate-fade pt-3">
+                                  <div className="flex items-center justify-center gap-6">
+                                    <div className="relative w-20 h-20 shrink-0">
+                                      <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                                        <circle cx="18" cy="18" r="15" fill="none" stroke="#27272a" strokeWidth="3" />
+                                        <circle cx="18" cy="18" r="10.8" fill="none" stroke="#27272a" strokeWidth="3" />
+                                        <circle cx="18" cy="18" r="6.6" fill="none" stroke="#27272a" strokeWidth="3" />
+                                        <RingStat pct={dPower} radius={15} color="#f43f5e" />
+                                        <RingStat pct={dTime} radius={10.8} color="#34d399" />
+                                        <RingStat pct={dDiscipline} radius={6.6} color="#38bdf8" />
+                                      </svg>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <p className="text-xs font-bold text-gray-300">{warrior.title}</p>
+                                      <div className="flex items-center space-x-1.5 text-[10px] text-gray-500"><span className="w-2 h-2 rounded-full bg-rose-500" /><span>Power {dPower}%</span></div>
+                                      <div className="flex items-center space-x-1.5 text-[10px] text-gray-500"><span className="w-2 h-2 rounded-full bg-emerald-400" /><span>Time {dTime}%</span></div>
+                                      <div className="flex items-center space-x-1.5 text-[10px] text-gray-500"><span className="w-2 h-2 rounded-full bg-sky-400" /><span>Discipline {dDiscipline}%</span></div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex justify-between px-1">
+                                    {dWeek.map((val: number, i: number) => (
+                                      <div key={i} className="w-6 h-6">
+                                        <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                                          <circle cx="18" cy="18" r="16" fill="none" stroke="#2a2a35" strokeWidth="4" />
+                                          <circle cx="18" cy="18" r="16" fill="none" stroke="#f43f5e" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${val}, 100`} />
+                                        </svg>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <div className="bg-gray-950/60 rounded-xl p-3 flex items-center space-x-2">
+                                    <Trophy size={14} className="text-yellow-400 shrink-0" />
+                                    <p className="text-xs text-gray-300">{warrior.achievement}</p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="relative pt-3">
+                                  <div className="space-y-4 filter blur-md opacity-40 pointer-events-none select-none">
+                                    <div className="flex items-center justify-center">
+                                      <div className="w-20 h-20 rounded-full border-[6px] border-gray-700" />
+                                    </div>
+                                    <div className="h-8 bg-gray-700 rounded-xl w-full" />
+                                  </div>
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock size={20} className="text-gray-500 mb-1" />
+                                    <p className="text-xs font-bold text-gray-400">Can't View This Profile</p>
+                                    <p className="text-[10px] text-gray-600 mt-0.5 text-center px-6">This warrior has chosen to keep their stats private.</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
