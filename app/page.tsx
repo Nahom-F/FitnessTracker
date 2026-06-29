@@ -1502,7 +1502,7 @@ export default function FullFitnessTracker() {
                     <p className="text-gray-400 text-sm mt-1">
                       Available for freelance work on{' '}
                       <a
-                        href="https://www.upwork.com/freelancers/~0145d2d9df8b7e93d8?mp_source=share" // <-- UPDATE THIS LINK
+                        href="#" // <-- UPDATE THIS LINK
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[#14a800] hover:underline font-medium transition-all"
